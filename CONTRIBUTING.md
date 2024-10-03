@@ -21,22 +21,57 @@ Here's how you can start contributing to the Void extension. This is where you s
 git clone https://github.com/voideditor/void
 ```
 
-2. Open the folder `/extensions/void` in VS Code (open it in a new workspace, _don't_ just cd into it):
+2.
+
+MacOS :
 
 ```
-open /extensions/void
+Run theses command in these strict order.
+
+Open terminal app at the root of the project then
+
+1. Change directory
+`cd extensions/void-ext`
+
+2. Install node_modules
+`npm install`
+
+3. Build Node modules
+`npm run build`
+
+4. Make Vscode able to execute code.sh
+`chmod +x scripts/code.sh`
+
+5. Run void (compilation might take some time)
+scripts/code.sh
+
+Hit run
+
+6. Enjoy Void !.
+--------------------------------------------------------------------------------------------
+
+WINDOWS :
+Open the folder `/extensions/void-ext/` in VS Code (open it in a new workspace, _don't_ just cd into it):
+
 ```
 
+open /extensions/void-ext
+
+```
 3. Install dependencies:
 
 ```
+
 npm install
+
 ```
 
 4. Build the project. We created this build command so that we could run React in vscode - it converts `sidebar/index.tsx` into a CSS/JS bundle in `dist/`.
 
 ```
+
 npm run build
+
 ```
 
 5. Run the project by pressing <kbd>F5</kbd>.
@@ -55,10 +90,19 @@ Before starting, make sure you've built the extension (by running `cd .\extensio
 
 Make sure you're on the correct NodeJS version as per `.nvmrc`.
 
+
+---------------------------------
+
+
+
+
+
 1. Install all dependencies.
 
 ```
-yarn
+
+npm install
+
 ```
 
 2. In VS Code, press <kbd>Ctrl+Shift+B</kbd> to start the build process - this can take some time. If you're not using VS Code, run `npm run watch` instead.
@@ -153,3 +197,4 @@ We keep track of all the files we've changed with Void so it's easy to rebase:
 - build/hygiene.js
 - build/lib/i18n.resources.json
 - build/npm/dirs.js
+```
