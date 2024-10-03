@@ -12,6 +12,7 @@ We use a [VSCode extension](https://code.visualstudio.com/api/get-started/your-f
 For some useful links we've compiled see [`VOID_USEFUL_LINKS.md`](https://github.com/voideditor/void/blob/main/VOID_USEFUL_LINKS.md).
 
 ## 1. Building the Extension
+
 Here's how you can start contributing to the Void extension. This is where you should get started if you're new.
 
 1. Clone the repository:
@@ -20,7 +21,7 @@ Here's how you can start contributing to the Void extension. This is where you s
 git clone https://github.com/voideditor/void
 ```
 
-2. Open the folder `/extensions/void` in VS Code (open it in a new workspace, *don't* just cd into it):
+2. Open the folder `/extensions/void` in VS Code (open it in a new workspace, _don't_ just cd into it):
 
 ```
 open /extensions/void
@@ -126,18 +127,15 @@ Please don't make big refactors without speaking with us first. We'd like to kee
 
 When you've made changes and want to submit them, please submit a pull request. Here are a few guidelines:
 
-- A PR should be about one *single* feature change. Break large changes into multiple PRs.
+- A PR should be about one _single_ feature change. Break large changes into multiple PRs.
 - Your title should clearly describe the change you made.
 - Your description should cover the exact files and changes you made. Please don't use vague statements like "refactored code" or "improved types" (instead, describe what code you refactored, or what types you changed).
 - Add tags to help us stay organized!
 - Please don't open a new issue for your PR.
 
-
-
 # Relevant files
 
 We keep track of all the files we've changed with Void so it's easy to rebase:
-
 
 - README.md
 - CONTRIBUTING.md
