@@ -11,7 +11,10 @@ We use a [VSCode extension](https://code.visualstudio.com/api/get-started/your-f
 
 For some useful links we've compiled see [`VOID_USEFUL_LINKS.md`](https://github.com/voideditor/void/blob/main/VOID_USEFUL_LINKS.md).
 
-## 1. Building the Extension
+## Building on Windows
+
+### 1. Building the Extension
+
 Here's how you can start contributing to the Void extension. This is where you should get started if you're new.
 
 1. Clone the repository:
@@ -20,7 +23,7 @@ Here's how you can start contributing to the Void extension. This is where you s
 git clone https://github.com/voideditor/void
 ```
 
-2. Open the folder `/extensions/void` in VS Code (open it in a new workspace, *don't* just cd into it):
+2. Open the folder `/extensions/void` in VS Code (open it in a new workspace, _don't_ just cd into it):
 
 ```
 open /extensions/void
@@ -46,7 +49,7 @@ If you would like to use AI features, you need to provide an API key. You can do
 
 Now that you're set up, feel free to check out our [Issues](https://github.com/voideditor/void/issues) page!
 
-## 2. Building the full IDE
+### 2. Building the full IDE
 
 Beyond the extension, we very occasionally edit the IDE when we need to access more functionality. If you want to work on the full IDE, please follow the steps below, or see VS Code's full [how to contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute) page.
 
@@ -66,11 +69,81 @@ npm install
 
 This should open up the built IDE after loading for some time. To see new changes without restarting the build, use <kbd>Ctrl+Shift+P</kbd> and run "Reload Window".
 
-To bundle the IDE, run `npm run gulp vscode-darwin-arm64`. Here are the full options: `vscode-{win32-ia32 | win32-x64 | darwin-x64 | darwin-arm64 | linux-ia32 | linux-x64 | linux-arm}(-min)`
+To bundle the IDE, run `npm run gulp vscode-win32-x64`.
+
+Here are the full options: `vscode-{win32-ia32 | win32-x64 | darwin-x64 | darwin-arm64 | linux-ia32 | linux-x64 | linux-arm}(-min)`
 
 If you're on Windows, we recommend running the project inside a dev container. VSCode should prompt you to do this automatically.
 
 Now that you're set up, feel free to check out our [Issues](https://github.com/voideditor/void/issues) page!
+
+## Building on MacOS
+
+### Prerequisites
+
+- Node js 20.6 : https://nodejs.org/en/download/
+- Python 3.12 : https://www.python.org/downloads/release/python-31211/
+- Xcode CLI : https://developer.apple.com/xcode/
+- Code command installed and working on your mac : https://code.visualstudio.com/docs/setup/mac
+- A Working AI API Key (OpenAI, Anthropic, Groq, Mistral, Gemini, ...)
+
+### Build the extension
+
+```
+git clone https://github.com/voideditor/void
+cd void
+npm install
+code extensions/void
+```
+
+Visual Studio Code will open, then install the dependencies and build the extension in watch mode
+
+```
+npm install
+npm run build --watch
+```
+
+Then `CTRL + C` to close the process, and build the extension using `fn + F5`
+
+You can now Set your api key to activate the extensions AI Features
+
+You can now close the editor.
+
+### Build Full IDE
+
+Follow the steps Extention build process, then follow thses steps to build the IDE
+
+In vscode Terminal (root void folder)
+
+```
+npm run watch
+```
+
+Wait until the last lines are
+
+```
+[watch-extensions] [*YOUR LOCAL HOUR*] Finished compilation extensions with 0 errors after 103780 ms
+[watch-client ] [*YOUR LOCAL HOUR*] Finished compilation with 0 errors after 176591 ms
+[watch-client ] [*YOUR LOCAL HOUR*] Starting compilation...
+[watch-client ] [*YOUR LOCAL HOUR*] Finished compilation with 0 errors after 28 ms
+```
+
+Then `CTRL+C` to kill the process
+
+_Prepare compilation and bundle checks_
+
+```
+chmod +x scripts/code.sh
+scripts/code.sh
+```
+
+This will launch the full IDE.
+
+Then, you should run :
+
+```
+npm run gulp vscode-darwin-arm64
+```
 
 ## Roadmap
 
@@ -126,9 +199,9 @@ Please don't make big refactors without speaking with us first. We'd like to kee
 
 Please submit a pull request once you've made a change. Here are a few guidelines:
 
-- A PR should be about one *single* feature change. The fewer items you change, the more likely the PR is to be accepted.
+- A PR should be about one _single_ feature change. The fewer items you change, the more likely the PR is to be accepted.
 
-- Your PR should contain a description that first explains at a high level what you did, and then describes the exact changes you made (and to which files). Please don't use vague statements like "refactored code" or "improved types" (instead, describe what code you refactored, or what types you changed). 
+- Your PR should contain a description that first explains at a high level what you did, and then describes the exact changes you made (and to which files). Please don't use vague statements like "refactored code" or "improved types" (instead, describe what code you refactored, or what types you changed).
 
 - Your title should clearly describe the change you made.
 
@@ -136,14 +209,13 @@ Please submit a pull request once you've made a change. Here are a few guideline
 
 - Please don't open a new Issue for your PR. Just submit the PR.
 
-- Avoid refactoring and making feature changes in the same PR. 
+- Avoid refactoring and making feature changes in the same PR.
 
 - Write good code. For example, a common mistake when people edit Void's config is to hard-code a default value like `'claude-3.5'` in 2+ separate places. Please follow best practices or describe your thought process if you had to compromise.
 
 # Relevant files
 
 We keep track of all the files we've changed with Void so it's easy to rebase:
-
 
 - README.md
 - CONTRIBUTING.md
