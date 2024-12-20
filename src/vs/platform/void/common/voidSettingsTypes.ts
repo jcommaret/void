@@ -235,16 +235,18 @@ export const displayInfoOfSettingName = (providerName: ProviderName, settingName
 					providerName === 'openRouter' ? 'sk-or-key...' : // sk-or-v1-key
 						providerName === 'gemini' ? 'key...' :
 							providerName === 'groq' ? 'gsk_key...' :
-								providerName === 'openAICompatible' ? 'sk-key...' :
-									'(never)',
+								providerName === 'mistral' ? 'mistral_key...' :
+									providerName === 'openAICompatible' ? 'sk-key...' :
+										'(never)',
 
 			subTextMd: providerName === 'anthropic' ? 'Get your [API Key here](https://console.anthropic.com/settings/keys).' :
 				providerName === 'openAI' ? 'Get your [API Key here](https://platform.openai.com/api-keys).' :
 					providerName === 'openRouter' ? 'Get your [API Key here](https://openrouter.ai/settings/keys).' :
 						providerName === 'gemini' ? 'Get your [API Key here](https://aistudio.google.com/apikey).' :
 							providerName === 'groq' ? 'Get your [API Key here](https://console.groq.com/keys).' :
-								providerName === 'openAICompatible' ? undefined :
-									undefined,
+								providerName === 'mistral' ? 'Get your [API Key here](https://console.mistral.ai/api-keys/).' :
+									providerName === 'openAICompatible' ? undefined :
+										undefined,
 		}
 	}
 	else if (settingName === 'endpoint') {
