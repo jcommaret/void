@@ -27,7 +27,7 @@ export const sendMistralMsg: _InternalSendLLMMessageFnType = async ({ messages, 
 		});
 
 		const response = (await mistral.chat.complete({
-			model: thisConfig.model,
+			model: modelName,
 			messages: messages.map((msg) => ({
 				role: msg.role as MistralMessage["role"],
 				content: msg.content,
@@ -44,7 +44,8 @@ export const sendMistralMsg: _InternalSendLLMMessageFnType = async ({ messages, 
 		}
 	} catch (error) {
 		onError({
-			error: error instanceof Error ? error.message : "Unknown error",
+			message: error instanceof Error ? error.message : "Unknown error",
+			fullError: error instanceof Error ? error : null,
 		});
 	}
 };
