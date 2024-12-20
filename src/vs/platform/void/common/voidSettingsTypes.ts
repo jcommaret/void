@@ -67,6 +67,19 @@ export const defaultGeminiModels = modelInfoOfDefaultNames([
 	'gemini-1.0-pro'
 ])
 
+export const defaultMistralModels = modelInfoOfDefaultNames([
+	'open-codestral-mamba',
+	'open-mistral-nemo',
+	`codestral-latest`,
+	`mistral-large-latest`,
+	`mistral-small-latest`,
+	`mistral-embed`,
+	`pixtral-large-latest`,
+	`pixtral-12b-2409`,
+	`ministral-3b-latest`,
+	`ministral-8b-latest`
+])
+
 
 
 // export const parseMaxTokensStr = (maxTokensStr: string) => {
@@ -117,6 +130,9 @@ export const defaultProviderSettings = {
 		apiKey: '',
 	},
 	groq: {
+		apiKey: ''
+	},
+	mistral: {
 		apiKey: ''
 	}
 } as const
@@ -194,6 +210,11 @@ export const displayInfoOfProviderName = (providerName: ProviderName): DisplayIn
 	else if (providerName === 'groq') {
 		return {
 			title: 'Groq',
+		}
+	}
+	else if (providerName === 'mistral') {
+		return {
+			title: 'Mistral',
 		}
 	}
 
@@ -287,6 +308,9 @@ export const voidInitModelOptions = {
 	groq: {
 		models: defaultGroqModels,
 	},
+	mistral: {
+		models: defaultMistralModels,
+	},
 }
 
 
@@ -314,6 +338,12 @@ export const defaultSettingsOfProvider: SettingsOfProvider = {
 		...defaultCustomSettings,
 		...defaultProviderSettings.groq,
 		...voidInitModelOptions.groq,
+		enabled: undefined,
+	},
+	mistral: {
+		...defaultCustomSettings,
+		...defaultProviderSettings.mistral,
+		...voidInitModelOptions.mistral,
 		enabled: undefined,
 	},
 	ollama: {
