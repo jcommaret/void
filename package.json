@@ -8,6 +8,7 @@
     "name": "Glass Devtools, Inc.",
     "email": "andrew@voideditor.com"
   },
+  "description": "Void : Code Editor",
   "license": "MIT",
   "main": "./out/main",
   "private": true,
@@ -24,8 +25,7 @@
     "test-node-amd": "mocha test/unit/node/index.amd.js --delay --ui=tdd --timeout=5000 --exit",
     "test-extension": "vscode-test",
     "preinstall": "node build/npm/preinstall.js",
-    "postinstall": "node build/npm/postinstall.js",
-    "compile": "node ./node_modules/gulp/bin/gulp.js compile",
+    "compile": "node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js compile",
     "watch": "npm-run-all -lp watchreact watch-client watch-extensions",
     "watch-amd": "npm-run-all -lp watch-client-amd watch-extensions",
     "watchd": "deemon npm run watch",
@@ -75,7 +75,13 @@
     "extensions-ci": "node ./node_modules/gulp/bin/gulp.js extensions-ci",
     "extensions-ci-pr": "node ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
-    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json"
+    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "postinstall": "electron-builder install-app-deps",
+    "build": "electron-builder --mac --windows --linux",
+    "release": "electron-builder --mac --windows --linux --publish always"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -140,6 +146,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.7.0",
+    "@electron-forge/maker-deb": "^7.7.0",
+    "@electron-forge/maker-rpm": "^7.7.0",
+    "@electron-forge/maker-squirrel": "^7.7.0",
+    "@electron-forge/maker-zip": "^7.7.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.7.0",
+    "@electron-forge/plugin-fuses": "^7.7.0",
+    "@electron/fuses": "^1.8.0",
     "@playwright/test": "^1.46.1",
     "@swc/core": "1.3.62",
     "@types/cookie": "^0.3.3",
@@ -149,6 +163,8 @@
     "@types/gulp-svgmin": "^1.2.1",
     "@types/http-proxy-agent": "^2.0.1",
     "@types/kerberos": "^1.1.2",
+    "electron-builder": "^25.1.8",
+    "electron-squirrel-startup": "^1.0.1",
     "@types/minimist": "^1.2.1",
     "@types/mocha": "^9.1.1",
     "@types/node": "20.x",
