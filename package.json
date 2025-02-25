@@ -80,8 +80,8 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "postinstall": "electron-builder install-app-deps",
-    "build": "electron-builder --mac --windows --linux",
-    "release": "electron-builder --mac --windows --linux --publish always"
+    "build": "electron-builder --mac",
+    "release": "electron-builder --mac --publish always"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
