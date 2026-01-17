@@ -1,0 +1,54 @@
+name: Build CLI (Multi-platform)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-cli:
+    name: Build CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-12, windows-2022]
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            cli/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build CLI
+        run: |
+          cargo build --release
+
+      - name: Run CLI tests
+        run: |
+          cargo test
+
+      - name: Upload artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v3
+        with:
+          name: void-cli-${{ matrix.os }}
+          path: cli/target/release/void
