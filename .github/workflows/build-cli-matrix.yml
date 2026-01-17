@@ -1,4 +1,4 @@
-name: Build CLI (Multi-platform)
+name: Build CLI (macOS)
 
 on:
   push:
@@ -9,12 +9,9 @@ on:
 
 jobs:
   build-cli:
-    name: Build CLI (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Build CLI (macOS)
+    runs-on: macos-12
     timeout-minutes: 60
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-12, windows-2022]
     defaults:
       run:
         working-directory: cli
@@ -47,8 +44,7 @@ jobs:
           cargo test
 
       - name: Upload artifact
-        if: matrix.os == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
-          name: void-cli-${{ matrix.os }}
+          name: void-cli-macos
           path: cli/target/release/void
