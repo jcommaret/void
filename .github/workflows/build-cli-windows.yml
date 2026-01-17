@@ -52,4 +52,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: void-cli-windows
-          path: cli/target/release/void.exe
+          path: target/release/void.exe

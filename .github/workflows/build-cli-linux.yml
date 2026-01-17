@@ -52,4 +52,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: void-cli-linux
-          path: cli/target/release/void
+          path: target/release/void
