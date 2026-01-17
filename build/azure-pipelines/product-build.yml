@@ -134,8 +134,6 @@ variables:
     value: 4ac7ed59-b5e9-4f66-9c30-8d1afa72d32d
   - name: ESRP_TENANT_ID
     value: 975f013f-7f24-47e8-a7d3-abc4752bf346
-  - name: ESRP_CLIENT_ID
-    value: c24324f7-e65f-4c45-8702-ed2d4c35df99
   - name: AZURE_DOCUMENTDB_ENDPOINT
     value: https://vscode.documents.azure.com/
   - name: VSCODE_MIXIN_REPO
