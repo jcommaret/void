@@ -52,4 +52,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: void-cli-macos
-          path: target/release/void
+          path: cli/target/release/void
+
