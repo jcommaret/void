@@ -5,10 +5,6 @@
 
 import { FeatureName, ModelSelectionOptions, OverridesOfModel, ProviderName } from './voidSettingsTypes.js';
 
-
-
-
-
 export const defaultProviderSettings = {
 	anthropic: {
 		apiKey: '',
@@ -68,28 +64,23 @@ export const defaultProviderSettings = {
 
 } as const
 
-
-
-
 export const defaultModelsOfProvider = {
 	openAI: [ // https://platform.openai.com/docs/models/gp
-		'gpt-4.1',
+		'gpt-5.2',
+		'gpt-5.1',
 		'gpt-4.1-mini',
 		'gpt-4.1-nano',
-		'o3',
 		'o4-mini',
-		// 'o1',
-		// 'o1-mini',
-		// 'gpt-4o',
-		// 'gpt-4o-mini',
+		'o3',
 	],
 	anthropic: [ // https://docs.anthropic.com/en/docs/about-claude/models
+		'claude-opus-4-5',
+		'claude-haiku-4-5',
+		'claude-sonnet-4-5',
 		'claude-opus-4-0',
-		'claude-sonnet-4-0',
-		'claude-3-7-sonnet-latest',
 		'claude-3-5-sonnet-latest',
-		'claude-3-5-haiku-latest',
-		'claude-3-opus-latest',
+		'claude-sonnet-4-0',
+		'claude-opus-4-1',
 	],
 	xAI: [ // https://docs.x.ai/docs/models?cluster=us-east-1
 		'grok-2',
@@ -99,8 +90,11 @@ export const defaultModelsOfProvider = {
 		'grok-3-mini-fast'
 	],
 	gemini: [ // https://ai.google.dev/gemini-api/docs/models/gemini
-		'gemini-2.5-pro-exp-03-25',
-		'gemini-2.5-flash-preview-04-17',
+		'gemini-3-pro-preview',
+		'gemini-3-flash-preview',
+		'gemini-2.5-pro-preview',
+		'gemini-2.5-flash-lite',
+		'gemini-2.5-pro',
 		'gemini-2.0-flash',
 		'gemini-2.0-flash-lite',
 		'gemini-2.5-pro-preview-05-06',
@@ -142,11 +136,16 @@ export const defaultModelsOfProvider = {
 	],
 	mistral: [ // https://docs.mistral.ai/getting-started/models/models_overview/
 		'codestral-latest',
+		'devstral-medium-latest',
 		'devstral-small-latest',
+		'magistral-medium-latest',
+		'magistral-small-latest',
 		'mistral-large-latest',
 		'mistral-medium-latest',
+		'mistral-small-latest',
 		'ministral-3b-latest',
 		'ministral-8b-latest',
+		'open-codestral-mamba'
 	],
 	openAICompatible: [], // fallback
 	googleVertex: [],
@@ -280,11 +279,12 @@ const openSourceModelOptions_assumingOAICompat = {
 		contextWindow: 32_000, reservedOutputTokenSpace: 4_096,
 	},
 	'devstral': {
-		supportsFIM: false,
+		supportsFIM: true,
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 		contextWindow: 131_000, reservedOutputTokenSpace: 8_192,
 	},
+
 	'openhands-lm-32b': { // https://www.all-hands.dev/blog/introducing-openhands-lm-32b----a-strong-open-coding-agent-model
 		supportsFIM: false,
 		supportsSystemMessage: 'system-role',
@@ -1003,15 +1003,25 @@ const mistralModelOptions = { // https://mistral.ai/products/la-plateforme#prici
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
 	},
-	'devstral-small-latest': { //https://openrouter.ai/mistralai/devstral-small:free
+	'devstral-medium-latest': { //https://openrouter.ai/mistralai/devstral-medium:free-latest': { //https://openrouter.ai/mistralai/devstral-small:free
 		contextWindow: 131_000,
 		reservedOutputTokenSpace: 8_192,
 		cost: { input: 0, output: 0 },
-		supportsFIM: false,
+		supportsFIM: true,
 		downloadable: { sizeGb: 14 }, //https://ollama.com/library/devstral
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
+	'devstral-small-latest': { //https://openrouter.ai/mistralai/devstral-small:free
+		contextWindow: 131_000,
+		reservedOutputTokenSpace: 8_192,
+		cost: { input: 0, output: 0 },
+		supportsFIM: true,
+		downloadable: { sizeGb: 14 }, //https://ollama.com/library/devstral
+		supportsSystemMessage: 'system-role',
+		reasoningCapabilities: false,
+	},
+
 	'ministral-8b-latest': { // ollama 'mistral'
 		contextWindow: 131_000,
 		reservedOutputTokenSpace: 4_096,
