@@ -1,0 +1,44 @@
+name: Build Void for macOS (ARM64)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build React
+        run: npm run buildreact
+
+      - name: Start watch mode
+        run: npm run watch &
+        env:
+          NODE_ENV: development
+
+      - name: Wait for build to complete
+        run: sleep 300
+
+      - name: Build for macOS ARM64
+        run: npm run gulp vscode-darwin-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-darwin-arm64
+          path: out-vscode/
