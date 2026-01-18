@@ -27,6 +27,14 @@ jobs:
       - name: Install stable TypeScript version
         run: npm install typescript@5.4.5 --save-dev
 
+      - name: Start gulp watch in background
+        run: npm run gulp watch &
+        env:
+          NODE_ENV: development
+
+      - name: Wait for monaco.d.ts to be generated
+        run: sleep 180
+
       - name: Build React
         run: npm run buildreact
 
