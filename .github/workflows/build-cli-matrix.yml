@@ -1,4 +1,4 @@
-name: Build CLI (macOS)
+name: Build CLI
 
 on:
   push:
@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Check clean git state
+        run: .github/workflows/check-clean-git-state.sh
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -51,6 +54,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: void-cli-macos
-          path: cli/target/release/void
+          name: code-cli-macos
+          path: cli/target/release/code
 
