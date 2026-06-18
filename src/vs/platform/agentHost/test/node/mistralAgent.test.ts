@@ -36,6 +36,7 @@ class FakeMistralApiService implements IMistralApiService {
 	lastAppend: { conversationId: string; request: any } | undefined;
 
 	constructor(private readonly _models: () => Promise<IMistralModel[]> = async () => []) { }
+	setRateLimit(): void { /* no-op: the fake makes no real requests to throttle */ }
 	models(): Promise<IMistralModel[]> { return this._models(); }
 	async startConversationStream(_apiKey: string, request: any): Promise<any> {
 		this.lastStartRequest = request;

@@ -66,7 +66,7 @@ Here's how to start changing Void's code. These steps cover everything from clon
    - Windows: `./scripts/code.bat`.
    - Mac: `./scripts/code.sh`.
    - Linux: `./scripts/code.sh`.
-5. You're good to start editing Void's code! 
+5. You're good to start editing Void's code!
    - You won't see your changes unless you press <kbd>Ctrl+R</kbd> (<kbd>Cmd+R</kbd>) inside the new window to reload. Alternatively, press <kbd>Ctrl+Shift+P</kbd> and `Reload Window`.
    - You might want to add the flags `--user-data-dir ./.tmp/user-data --extensions-dir ./.tmp/extensions` to the command in step 4, which lets you reset any IDE changes you made by deleting the `.tmp` folder.
 	- You can kill any of the build scripts by pressing `Ctrl+D` in its terminal. If you press `Ctrl+C` the script will close but will keep running in the background.
@@ -115,7 +115,7 @@ We don't usually recommend building a local executible of Void - typically you s
 	<summary> Building Locally (not recommended)</summary>
 If you're certain you want to build a local executible of Void, follow these steps. It can take ~25 minutes.
 
-Make sure you've already entered Developer Mode with Void first, then run one of the following commands. This will create a folder named `VSCode-darwin-arm64` or similar outside of the void/ repo (see below). 
+Make sure you've already entered Developer Mode with Void first, then run one of the following commands. This will create a folder named `VSCode-darwin-arm64` or similar outside of the void/ repo (see below).
 
 
 ##### Mac
@@ -149,7 +149,3 @@ workspace/
 - Please submit a pull request once you've made a change.
 - No need to submit an Issue unless you're creating a new feature that might involve multiple PRs.
 - Please don't use AI to write your PR 🙂
-
-
-
-

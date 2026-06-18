@@ -9,7 +9,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { autorun, observableFromEvent } from '../../../../base/common/observable.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { PolicyCategory } from '../../../../base/common/policy.js';
-import { AgentHostAhpJsonlLoggingSettingId, AgentHostClaudeAgentSdkPathSettingId, AgentHostMistralApiKeySettingId, AgentHostCustomTerminalToolEnabledSettingId, AgentHostEnabledSettingId, AgentHostIpcLoggingSettingId, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOutfileSettingId } from '../../../../platform/agentHost/common/agentService.js';
+import { AgentHostAhpJsonlLoggingSettingId, AgentHostClaudeAgentSdkPathSettingId, AgentHostMistralApiKeySettingId, AgentHostMistralRequestsPerSecondSettingId, AgentHostCustomTerminalToolEnabledSettingId, AgentHostEnabledSettingId, AgentHostIpcLoggingSettingId, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOutfileSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { AgentNetworkFilterService, IAgentNetworkFilterService } from '../../../../platform/networkFilter/common/networkFilterService.js';
 import { AgentNetworkDomainSettingId } from '../../../../platform/networkFilter/common/settings.js';
 import { AgentSandboxEnabledValue, AgentSandboxSettingId } from '../../../../platform/sandbox/common/settings.js';
@@ -1003,6 +1003,14 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize('chat.agentHost.mistralAgent.apiKey', "Experimental. Mistral API key. When set, the Mistral agent provider is registered inside the agent host, with a native local tool-using harness backed by the Mistral API. If left empty, Void reuses the Mistral API key configured in Void Settings. Requires `#chat.agentHost.enabled#`. The agent host process must be restarted (reload window) for changes to take effect."),
 			default: '',
 			// Machine-scoped so the key is never synced via Settings Sync.
+			scope: ConfigurationScope.MACHINE,
+			tags: ['experimental', 'advanced'],
+		},
+		[AgentHostMistralRequestsPerSecondSettingId]: {
+			type: 'number',
+			description: nls.localize('chat.agentHost.mistralAgent.requestsPerSecond', "Experimental. Caps how many requests per second the Mistral agent provider opens against the Mistral API (a client-side throttle that smooths bursts under Mistral's per-workspace rate limit). Defaults to `1`; set to `0` to disable the throttle. `429 Too Many Requests` responses are retried with backoff regardless. The agent host process must be restarted (reload window) for changes to take effect."),
+			default: 1,
+			minimum: 0,
 			scope: ConfigurationScope.MACHINE,
 			tags: ['experimental', 'advanced'],
 		},

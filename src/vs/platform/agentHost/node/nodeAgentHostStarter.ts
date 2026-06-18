@@ -13,7 +13,7 @@ import { parseAgentHostDebugPort } from '../../environment/node/environmentServi
 import { ILogService } from '../../log/common/log.js';
 import { getResolvedShellEnv } from '../../shell/node/shellEnv.js';
 import { IAgentHostConnection, IAgentHostStarter } from '../common/agent.js';
-import { AgentHostClaudeAgentSdkPathSettingId, AgentHostClaudeSdkPathEnvVar, AgentHostMistralApiKeySettingId, AgentHostMistralApiKeyEnvVar, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOutfileSettingId, buildAgentHostOTelEnv } from '../common/agentService.js';
+import { AgentHostClaudeAgentSdkPathSettingId, AgentHostClaudeSdkPathEnvVar, AgentHostMistralApiKeySettingId, AgentHostMistralApiKeyEnvVar, AgentHostMistralRequestsPerSecondSettingId, AgentHostMistralRequestsPerSecondEnvVar, AgentHostOTelCaptureContentSettingId, AgentHostOTelDbSpanExporterEnabledSettingId, AgentHostOTelEnabledSettingId, AgentHostOTelExporterTypeSettingId, AgentHostOTelOtlpEndpointSettingId, AgentHostOTelOutfileSettingId, buildAgentHostOTelEnv } from '../common/agentService.js';
 
 /**
  * Options for configuring the agent host WebSocket server in the child process.
@@ -91,6 +91,15 @@ export class NodeAgentHostStarter extends Disposable implements IAgentHostStarte
 			|| '';
 		if (mistralApiKey) {
 			env[AgentHostMistralApiKeyEnvVar] = mistralApiKey;
+		}
+
+		// Client-side requests-per-second cap for Mistral API calls. Only
+		// forwarded when set to a positive value (0 = no proactive throttle).
+		const mistralRps = this._configurationService.getValue<number>(AgentHostMistralRequestsPerSecondSettingId)
+			|| Number(process.env[AgentHostMistralRequestsPerSecondEnvVar])
+			|| 0;
+		if (mistralRps > 0) {
+			env[AgentHostMistralRequestsPerSecondEnvVar] = String(mistralRps);
 		}
 
 		// Translate `chat.agentHost.otel.*` settings into the env vars consumed by

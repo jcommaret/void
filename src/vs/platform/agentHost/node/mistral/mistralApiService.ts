@@ -13,6 +13,8 @@ import type { EventStream } from '@mistralai/mistralai/lib/event-streams.js';
 import type { Result } from '@mistralai/mistralai/types/fp.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
+import { AgentHostMistralRequestsPerSecondEnvVar } from '../../common/agentService.js';
+import { isRateLimitError, retryAfterMs, TokenBucketRateLimiter } from './mistralRateLimiter.js';
 
 /**
  * A tool-capable Mistral model, normalized for the agent host. Derived from
@@ -51,6 +53,15 @@ export const IMistralApiService = createDecorator<IMistralApiService>('mistralAp
 export interface IMistralApiService {
 	readonly _serviceBrand: undefined;
 
+	/**
+	 * Set the client-side requests-per-second cap applied to every call below.
+	 * `0` (or negative) disables the proactive throttle; `429` responses are
+	 * still retried with backoff regardless. Initialized at construction from
+	 * {@link AgentHostMistralRequestsPerSecondEnvVar}; exposed so a future live
+	 * config channel (or tests) can update the rate without a restart.
+	 */
+	setRateLimit(requestsPerSecond: number): void;
+
 	/** The full model catalog, normalized. Callers filter by capability. */
 	models(apiKey: string, options?: IMistralRequestOptions): Promise<IMistralModel[]>;
 
@@ -64,11 +75,77 @@ export interface IMistralApiService {
 	getConversationHistory(apiKey: string, conversationId: string, options?: IMistralRequestOptions): Promise<ConversationHistory>;
 }
 
+/** Cap on automatic retries of a `429` response before the error propagates. */
+const MISTRAL_RATE_LIMIT_MAX_RETRIES = 4;
+/** Base delay for exponential backoff (doubles each attempt). */
+const MISTRAL_RATE_LIMIT_BASE_BACKOFF_MS = 500;
+/** Ceiling for a single backoff wait (before jitter), independent of attempt. */
+const MISTRAL_RATE_LIMIT_MAX_BACKOFF_MS = 8_000;
+/** Random jitter added to a computed backoff to avoid thundering herds. */
+const MISTRAL_RATE_LIMIT_JITTER_MS = 250;
+
+/** A `setTimeout`-based delay that rejects (rather than waits) on abort. */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+	return new Promise<void>((resolve, reject) => {
+		if (signal?.aborted) {
+			reject(signal.reason ?? new Error('Aborted'));
+			return;
+		}
+		const onAbort = () => {
+			clearTimeout(timer);
+			reject(signal!.reason ?? new Error('Aborted'));
+		};
+		const timer = setTimeout(() => {
+			signal?.removeEventListener('abort', onAbort);
+			resolve();
+		}, ms);
+		signal?.addEventListener('abort', onAbort, { once: true });
+	});
+}
+
 export class MistralApiService extends Disposable implements IMistralApiService {
 	declare readonly _serviceBrand: undefined;
 
 	/** `MistralCore` is cheap but holds config; cache one per API key. */
 	private readonly _coreByKey = new Map<string, MistralCore>();
+
+	/**
+	 * Smooths request *starts* to stay under Mistral's per-workspace rate limit.
+	 * Seeded from {@link AgentHostMistralRequestsPerSecondEnvVar} (the setting
+	 * defaults to `1`); falls back to `0` — no proactive throttle — only when the
+	 * env var is unset, e.g. an agent host started outside the workbench starters.
+	 */
+	private readonly _rateLimiter = this._register(
+		new TokenBucketRateLimiter(Number(process.env[AgentHostMistralRequestsPerSecondEnvVar]) || 0),
+	);
+
+	setRateLimit(requestsPerSecond: number): void {
+		this._rateLimiter.setRate(requestsPerSecond);
+	}
+
+	/**
+	 * Runs `fn` behind the rate limiter, retrying `429` responses with
+	 * exponential backoff (honouring a `Retry-After` header when present). Other
+	 * errors, an exhausted retry budget, or an aborted signal propagate at once.
+	 */
+	private async _rateLimited<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Promise<T> {
+		for (let attempt = 0; ; attempt++) {
+			await this._rateLimiter.acquire();
+			try {
+				return await fn();
+			} catch (err) {
+				if (signal?.aborted || attempt >= MISTRAL_RATE_LIMIT_MAX_RETRIES || !isRateLimitError(err)) {
+					throw err;
+				}
+				let backoffMs = retryAfterMs(err);
+				if (backoffMs === undefined) {
+					const exponential = Math.min(MISTRAL_RATE_LIMIT_MAX_BACKOFF_MS, MISTRAL_RATE_LIMIT_BASE_BACKOFF_MS * (2 ** attempt));
+					backoffMs = exponential + Math.floor(Math.random() * MISTRAL_RATE_LIMIT_JITTER_MS);
+				}
+				await delay(backoffMs, signal);
+			}
+		}
+	}
 
 	private _core(apiKey: string): MistralCore {
 		let core = this._coreByKey.get(apiKey);
@@ -93,7 +170,7 @@ export class MistralApiService extends Disposable implements IMistralApiService 
 	}
 
 	async models(apiKey: string, options?: IMistralRequestOptions): Promise<IMistralModel[]> {
-		const list = await this._unwrap(modelsList(this._core(apiKey), undefined, this._requestOptions(options)));
+		const list = await this._rateLimited(options?.signal, () => this._unwrap(modelsList(this._core(apiKey), undefined, this._requestOptions(options))));
 		return (list.data ?? []).map(m => ({
 			id: m.id,
 			name: m.name ?? m.id,
@@ -104,19 +181,19 @@ export class MistralApiService extends Disposable implements IMistralApiService 
 	}
 
 	startConversationStream(apiKey: string, request: ConversationStreamRequest, options?: IMistralRequestOptions): Promise<EventStream<ConversationEvents>> {
-		return this._unwrap(betaConversationsStartStream(this._core(apiKey), request, this._requestOptions(options)));
+		return this._rateLimited(options?.signal, () => this._unwrap(betaConversationsStartStream(this._core(apiKey), request, this._requestOptions(options))));
 	}
 
 	appendConversationStream(apiKey: string, conversationId: string, request: ConversationAppendStreamRequest, options?: IMistralRequestOptions): Promise<EventStream<ConversationEvents>> {
-		return this._unwrap(betaConversationsAppendStream(
+		return this._rateLimited(options?.signal, () => this._unwrap(betaConversationsAppendStream(
 			this._core(apiKey),
 			{ conversationId, conversationAppendStreamRequest: request },
 			this._requestOptions(options),
-		));
+		)));
 	}
 
 	getConversationHistory(apiKey: string, conversationId: string, options?: IMistralRequestOptions): Promise<ConversationHistory> {
-		return this._unwrap(betaConversationsGetHistory(this._core(apiKey), { conversationId }, this._requestOptions(options)));
+		return this._rateLimited(options?.signal, () => this._unwrap(betaConversationsGetHistory(this._core(apiKey), { conversationId }, this._requestOptions(options))));
 	}
 
 	override dispose(): void {
