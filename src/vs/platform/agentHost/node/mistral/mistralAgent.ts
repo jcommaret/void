@@ -24,6 +24,7 @@ import { CustomizationRef, SessionInputResponseKind, type MessageAttachment, typ
 import type { ConversationEvents, FunctionResultEntry, MessageOutputContentChunks } from '@mistralai/mistralai/models/components/index.js';
 import type { EventStream } from '@mistralai/mistralai/lib/event-streams.js';
 import { IMistralApiService, IMistralModel } from './mistralApiService.js';
+import { isRateLimitError } from './mistralRateLimiter.js';
 import { MistralAgentSession } from './mistralAgentSession.js';
 import { executeMistralTool, IMistralToolContext, IMistralToolResult, isMutatingTool, MISTRAL_TOOLS, toolDisplayName } from './mistralTools.js';
 
@@ -483,8 +484,13 @@ export class MistralAgent extends Disposable implements IAgent {
 				this._fireAction({ type: ActionType.SessionTurnComplete, session, turnId });
 				return;
 			}
-			this._logService.error(`[Mistral] Turn failed: ${err}`);
-			this._fireError(session, turnId, 'TurnError', err instanceof Error ? err.message : String(err));
+			if (isRateLimitError(err)) {
+				this._fireError(session, turnId, 'MistralRateLimitExceeded',
+					localize('mistralAgent.rateLimitExceeded', 'Mistral token rate limit reached (25 000 tokens/min) — automatic retries exhausted.'));
+			} else {
+				this._logService.error(`[Mistral] Turn failed: ${err}`);
+				this._fireError(session, turnId, 'TurnError', err instanceof Error ? err.message : String(err));
+			}
 		}
 	}
 

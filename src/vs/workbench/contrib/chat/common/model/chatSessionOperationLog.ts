@@ -85,6 +85,7 @@ const responsePartSchema = Adapt.v<IChatProgressResponseContent, SerializedChatR
 				case 'treeData':
 				case 'workspaceEdit':
 				case 'disabledClaudeHooks':
+				case 'mistralRateLimit':
 					return a.kind === b.kind;
 
 				default: {

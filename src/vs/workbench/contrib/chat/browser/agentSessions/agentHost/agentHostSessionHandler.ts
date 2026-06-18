@@ -1418,7 +1418,11 @@ export class AgentHostSessionHandler extends Disposable implements IChatSessionC
 				return;
 			}
 			if (lastTurn?.state === TurnState.Error && lastTurn.error) {
-				opts.sink([{ kind: 'markdownContent', content: new MarkdownString(`\n\nError: (${lastTurn.error.errorType}) ${lastTurn.error.message}`) }]);
+				if (lastTurn.error.errorType === 'MistralRateLimitExceeded') {
+					opts.sink([{ kind: 'mistralRateLimit', resetAt: Date.now() + 60_000 }]);
+				} else {
+					opts.sink([{ kind: 'markdownContent', content: new MarkdownString(`\n\nError: (${lastTurn.error.errorType}) ${lastTurn.error.message}`) }]);
+				}
 			}
 			finish(lastTurn);
 		}));

@@ -136,20 +136,38 @@ export function isRateLimitError(err: unknown): boolean {
 	return !!err && typeof err === 'object' && (err as { statusCode?: unknown }).statusCode === 429;
 }
 
+/** The duration of Mistral's token-per-minute rate-limit window, in ms. */
+export const MISTRAL_TOKEN_WINDOW_MS = 60_000;
+
 /**
  * Parses a `Retry-After` header (delay in seconds, or an HTTP date) off an
- * error into milliseconds. Returns `undefined` when absent or unparseable.
+ * error into milliseconds. Falls back to {@link MISTRAL_TOKEN_WINDOW_MS} when
+ * `x-ratelimit-limit-tokens-minute` is present (Mistral's token-per-minute
+ * window header), since the budget is guaranteed to reset within 60 s.
+ * Returns `undefined` when no timing hint is available.
  */
 export function retryAfterMs(err: unknown, now: number = Date.now()): number | undefined {
 	const headers = (err as { headers?: { get?(name: string): string | null } } | undefined)?.headers;
+
+	// Explicit Retry-After takes priority.
 	const value = headers?.get?.('retry-after');
-	if (!value) {
-		return undefined;
+	if (value) {
+		const seconds = Number(value);
+		if (Number.isFinite(seconds)) {
+			return Math.max(0, seconds * 1000);
+		}
+		const dateMs = Date.parse(value);
+		if (!Number.isNaN(dateMs)) {
+			return Math.max(0, dateMs - now);
+		}
 	}
-	const seconds = Number(value);
-	if (Number.isFinite(seconds)) {
-		return Math.max(0, seconds * 1000);
+
+	// Mistral uses per-minute token windows and does not send Retry-After.
+	// If its rate-limit headers are present, wait for the full window to reset.
+	const perMinuteLimit = headers?.get?.('x-ratelimit-limit-tokens-minute');
+	if (perMinuteLimit !== null && perMinuteLimit !== undefined) {
+		return MISTRAL_TOKEN_WINDOW_MS;
 	}
-	const dateMs = Date.parse(value);
-	return Number.isNaN(dateMs) ? undefined : Math.max(0, dateMs - now);
+
+	return undefined;
 }

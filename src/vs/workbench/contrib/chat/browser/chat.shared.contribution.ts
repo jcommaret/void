@@ -202,6 +202,22 @@ CommandsRegistry.registerCommand('_chat.notifyQuestionCarouselAnswer', (accessor
 	accessor.get(IChatService).notifyQuestionCarouselAnswer('', resolveId, answers);
 });
 
+CommandsRegistry.registerCommand('void.chat.retryRateLimited', (accessor: ServicesAccessor) => {
+	const widget = accessor.get(IChatWidgetService).lastFocusedWidget;
+	if (!widget) { return; }
+	const sessionResource = widget.viewModel?.sessionResource;
+	if (!sessionResource) { return; }
+	const chatModel = accessor.get(IChatService).getSession(sessionResource);
+	const lastRequest = chatModel?.getRequests().at(-1);
+	if (lastRequest) {
+		accessor.get(IChatService).resendRequest(lastRequest, {
+			userSelectedModelId: widget.input.currentLanguageModel,
+			attempt: (lastRequest.attempt ?? -1) + 1,
+			...widget.getModeRequestOptions(),
+		});
+	}
+});
+
 const toolReferenceNameEnumValues: string[] = [];
 const toolReferenceNameEnumDescriptions: string[] = [];
 

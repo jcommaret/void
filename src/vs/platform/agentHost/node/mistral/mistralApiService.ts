@@ -79,8 +79,12 @@ export interface IMistralApiService {
 const MISTRAL_RATE_LIMIT_MAX_RETRIES = 4;
 /** Base delay for exponential backoff (doubles each attempt). */
 const MISTRAL_RATE_LIMIT_BASE_BACKOFF_MS = 500;
-/** Ceiling for a single backoff wait (before jitter), independent of attempt. */
-const MISTRAL_RATE_LIMIT_MAX_BACKOFF_MS = 8_000;
+/**
+ * Ceiling for a single backoff wait (before jitter). Matches the 60-second
+ * token-per-minute window: after waiting this long the budget is guaranteed to
+ * have reset, so a retry should succeed without a further 429.
+ */
+const MISTRAL_RATE_LIMIT_MAX_BACKOFF_MS = 60_000;
 /** Random jitter added to a computed backoff to avoid thundering herds. */
 const MISTRAL_RATE_LIMIT_JITTER_MS = 250;
 

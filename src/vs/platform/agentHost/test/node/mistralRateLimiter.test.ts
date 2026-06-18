@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { isRateLimitError, retryAfterMs, TokenBucketRateLimiter } from '../../node/mistral/mistralRateLimiter.js';
+import { isRateLimitError, MISTRAL_TOKEN_WINDOW_MS, retryAfterMs, TokenBucketRateLimiter } from '../../node/mistral/mistralRateLimiter.js';
 
 /** Flush a few microtask turns, then report whether `p` has resolved. */
 async function resolvedSynchronously(p: Promise<void>): Promise<boolean> {
@@ -117,5 +117,32 @@ suite('Mistral - rate limit error helpers', () => {
 		assert.strictEqual(retryAfterMs(errWithRetryAfter('not-a-date')), undefined);
 		assert.strictEqual(retryAfterMs({ statusCode: 429 }), undefined);
 		assert.strictEqual(retryAfterMs(undefined), undefined);
+	});
+
+	function errWithTokenMinuteLimit(limit: string): unknown {
+		return {
+			statusCode: 429,
+			headers: {
+				get: (name: string) => name === 'x-ratelimit-limit-tokens-minute' ? limit : null,
+			},
+		};
+	}
+
+	test('retryAfterMs returns 60 s when x-ratelimit-limit-tokens-minute is present', () => {
+		assert.strictEqual(retryAfterMs(errWithTokenMinuteLimit('25000')), MISTRAL_TOKEN_WINDOW_MS);
+	});
+
+	test('retryAfterMs prefers Retry-After over x-ratelimit-limit-tokens-minute', () => {
+		const err = {
+			statusCode: 429,
+			headers: {
+				get: (name: string) => {
+					if (name === 'retry-after') { return '5'; }
+					if (name === 'x-ratelimit-limit-tokens-minute') { return '25000'; }
+					return null;
+				},
+			},
+		};
+		assert.strictEqual(retryAfterMs(err), 5000);
 	});
 });
