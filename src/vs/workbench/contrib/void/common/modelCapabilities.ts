@@ -728,8 +728,16 @@ const openAICompatIncludeInPayloadReasoning = (reasoningInfo: SendableReasoningI
 
 }
 
-// Mistral via OpenAI SDK: omit `reasoning_effort` (422 "Extra inputs are not permitted"); public OpenAPI != strict gateway here. Use Mistral-native SDK upstream if needed.
-const mistralIncludeInPayloadReasoning = (_reasoningInfo: SendableReasoningInfo): null => null
+// Mistral reasoning control, sent as a raw body field through the OpenAI-compatible gateway (no Mistral SDK needed).
+// Only mistral-small / mistral-medium carry the effort slider, so reasoning_effort ('none' | 'high') is emitted
+// for them alone. magistral (native reasoning) and the non-reasoning models produce no slider value → nothing is
+// sent, which avoids the "reasoning_effort is not enabled for this model" 400 those models return.
+const mistralIncludeInPayloadReasoning = (reasoningInfo: SendableReasoningInfo) => {
+	if (reasoningInfo?.type === 'effort_slider_value') {
+		return { reasoning_effort: reasoningInfo.reasoningEffort }
+	}
+	return null
+}
 
 const openAISettings: VoidStaticProviderInfo = {
 	modelOptions: openAIModelOptions,
@@ -971,6 +979,18 @@ const deepseekSettings: VoidStaticProviderInfo = {
 
 // ---------------- MISTRAL ----------------
 
+// mistral-small (Small 4) and mistral-medium (Medium 3.5) support adjustable reasoning via the native
+// `reasoning_effort` param, which on these models only accepts 'none' (minimal, no thinking chunk) or 'high'
+// (full thinking) — the other SDK enum values (minimal/low/medium/xhigh) 400 with "not enabled for this model".
+// magistral does NOT use this (it reasons natively and rejects reasoning_effort).
+const mistralReasoningEffortCapabilities = {
+	supportsReasoning: true as const,
+	canIOReasoning: true,
+	canTurnOffReasoning: false,
+	reasoningSlider: { type: 'effort_slider' as const, values: ['none', 'high'], default: 'none' },
+	openSourceThinkTags: ['<think>', '</think>'] as [string, string],
+}
+
 const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/models_overview/
 	'mistral-large-latest': { // Mistral Large 3 — https://docs.mistral.ai/models/model-cards/mistral-large-3-25-12
 		contextWindow: 256_000,
@@ -990,7 +1010,7 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		specialToolFormat: 'openai-style',
 		downloadable: { sizeGb: 'not-known' },
 		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
+		reasoningCapabilities: mistralReasoningEffortCapabilities,
 	},
 	'mistral-small-latest': { // Mistral Small 4 — https://docs.mistral.ai/models/model-cards/mistral-small-4-0-26-03
 		contextWindow: 256_000,
@@ -1000,7 +1020,7 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		specialToolFormat: 'openai-style',
 		downloadable: { sizeGb: 'not-known' },
 		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
+		reasoningCapabilities: mistralReasoningEffortCapabilities,
 	},
 	'codestral-latest': { // Codestral 25.08 — https://docs.mistral.ai/models/model-cards/codestral-25-08
 		contextWindow: 128_000,
@@ -1030,7 +1050,7 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		specialToolFormat: 'openai-style',
 		downloadable: { sizeGb: 'not-known' },
 		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
+		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] }, // native reasoning — rejects reasoning_effort
 	},
 	'ministral-14b-latest': { // Ministral 3 14B — https://docs.mistral.ai/models/model-cards/ministral-3-14b-25-12
 		contextWindow: 256_000,

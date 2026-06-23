@@ -323,6 +323,39 @@ const rawToolCallObjOfAnthropicParams = (toolBlock: Anthropic.Messages.ToolUseBl
 
 // ------------ OPENAI-COMPATIBLE ------------
 
+// Most OpenAI-compatible providers return `delta.content` as a plain string. Some (notably Mistral's
+// magistral reasoning models) instead return an array of content chunks, e.g.
+//   [{ type: 'thinking', thinking: [{ type: 'text', text: '...' }] }, { type: 'text', text: '...' }]
+// Concatenating that array directly coerces each object to "[object Object]" in the chat, so split it
+// into plain text + reasoning here.
+const parseOpenAICompatibleDeltaContent = (content: unknown): { text: string; reasoning: string } => {
+	if (content == null) return { text: '', reasoning: '' }
+	if (typeof content === 'string') return { text: content, reasoning: '' }
+	if (!Array.isArray(content)) return { text: '', reasoning: '' }
+
+	const chunkText = (chunk: unknown): string => {
+		if (typeof chunk === 'string') return chunk
+		if (chunk && typeof chunk === 'object' && typeof (chunk as { text?: unknown }).text === 'string') return (chunk as { text: string }).text
+		return ''
+	}
+
+	let text = ''
+	let reasoning = ''
+	for (const chunk of content) {
+		if (typeof chunk === 'string') { text += chunk; continue }
+		if (!chunk || typeof chunk !== 'object') continue
+		if ((chunk as { type?: unknown }).type === 'thinking') {
+			const thinking = (chunk as { thinking?: unknown }).thinking
+			if (typeof thinking === 'string') reasoning += thinking
+			else if (Array.isArray(thinking)) for (const t of thinking) reasoning += chunkText(t)
+		}
+		else { // 'text' chunk (or any other chunk that carries a string `.text`)
+			text += chunkText(chunk)
+		}
+	}
+	return { text, reasoning }
+}
+
 
 const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onError, settingsOfProvider, modelSelectionOptions, modelName: modelName_, _setAborter, providerName, chatMode, separateSystemMessage, overridesOfModel, mcpTools }: SendChatParams_Internal) => {
 	const {
@@ -393,9 +426,10 @@ const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onE
 			_setAborter(() => response.controller.abort())
 			// when receive text
 			for await (const chunk of response) {
-				// message
-				const newText = chunk.choices[0]?.delta?.content ?? ''
+				// message (delta.content is usually a string, but Mistral magistral returns an array of content chunks)
+				const { text: newText, reasoning: newReasoningFromContent } = parseOpenAICompatibleDeltaContent(chunk.choices[0]?.delta?.content)
 				fullTextSoFar += newText
+				fullReasoningSoFar += newReasoningFromContent
 
 				// tool call
 				for (const tool of chunk.choices[0]?.delta?.tool_calls ?? []) {

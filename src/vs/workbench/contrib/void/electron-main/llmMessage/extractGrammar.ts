@@ -23,6 +23,9 @@ export const extractReasoningWrapper = (
 
 	let fullTextSoFar = ''
 	let fullReasoningSoFar = ''
+	// reasoning already separated upstream (e.g. Mistral magistral's structured thinking chunks) arrives
+	// via params.fullReasoning - keep it so it isn't overwritten by the <think>-tag parsing below.
+	let externalReasoningSoFar = ''
 
 
 	if (!thinkTags[0] || !thinkTags[1]) throw new Error(`thinkTags must not be empty if provided. Got ${JSON.stringify(thinkTags)}.`)
@@ -33,6 +36,7 @@ export const extractReasoningWrapper = (
 	}
 
 	const newOnText: OnText = ({ fullText: fullText_, ...p }) => {
+		if (typeof p.fullReasoning === 'string') externalReasoningSoFar = p.fullReasoning
 
 		// until found the first think tag, keep adding to fullText
 		if (!foundTag1) {
@@ -51,7 +55,7 @@ export const extractReasoningWrapper = (
 				fullTextSoFar += fullText_.substring(0, tag1Index)
 				// Update latestAddIdx to after the first tag
 				latestAddIdx = tag1Index + thinkTags[0].length
-				onText({ ...p, fullText: fullTextSoFar, fullReasoning: fullReasoningSoFar })
+				onText({ ...p, fullText: fullTextSoFar, fullReasoning: externalReasoningSoFar + fullReasoningSoFar })
 				return
 			}
 
@@ -59,7 +63,7 @@ export const extractReasoningWrapper = (
 			// add the text to fullText
 			fullTextSoFar = fullText_
 			latestAddIdx = fullText_.length
-			onText({ ...p, fullText: fullTextSoFar, fullReasoning: fullReasoningSoFar })
+			onText({ ...p, fullText: fullTextSoFar, fullReasoning: externalReasoningSoFar + fullReasoningSoFar })
 			return
 		}
 
@@ -83,7 +87,7 @@ export const extractReasoningWrapper = (
 				fullReasoningSoFar += fullText_.substring(latestAddIdx, tag2Index)
 				// Update latestAddIdx to after the second tag
 				latestAddIdx = tag2Index + thinkTags[1].length
-				onText({ ...p, fullText: fullTextSoFar, fullReasoning: fullReasoningSoFar })
+				onText({ ...p, fullText: fullTextSoFar, fullReasoning: externalReasoningSoFar + fullReasoningSoFar })
 				return
 			}
 
@@ -96,7 +100,7 @@ export const extractReasoningWrapper = (
 				latestAddIdx = fullText_.length
 			}
 
-			onText({ ...p, fullText: fullTextSoFar, fullReasoning: fullReasoningSoFar })
+			onText({ ...p, fullText: fullTextSoFar, fullReasoning: externalReasoningSoFar + fullReasoningSoFar })
 			return
 		}
 
@@ -109,7 +113,7 @@ export const extractReasoningWrapper = (
 			latestAddIdx = fullText_.length
 		}
 
-		onText({ ...p, fullText: fullTextSoFar, fullReasoning: fullReasoningSoFar })
+		onText({ ...p, fullText: fullTextSoFar, fullReasoning: externalReasoningSoFar + fullReasoningSoFar })
 	}
 
 
@@ -117,10 +121,10 @@ export const extractReasoningWrapper = (
 		const fullText_ = fullTextSoFar
 		const tag1Idx = fullText_.indexOf(thinkTags[0])
 		const tag2Idx = fullText_.indexOf(thinkTags[1])
-		if (tag1Idx === -1) return { fullText: fullText_, fullReasoning: '' } // never started reasoning
-		if (tag2Idx === -1) return { fullText: '', fullReasoning: fullText_ } // never stopped reasoning
+		if (tag1Idx === -1) return { fullText: fullText_, fullReasoning: externalReasoningSoFar } // never started reasoning
+		if (tag2Idx === -1) return { fullText: '', fullReasoning: externalReasoningSoFar + fullText_ } // never stopped reasoning
 
-		const fullReasoning = fullText_.substring(tag1Idx + thinkTags[0].length, tag2Idx)
+		const fullReasoning = externalReasoningSoFar + fullText_.substring(tag1Idx + thinkTags[0].length, tag2Idx)
 		const fullText = fullText_.substring(0, tag1Idx) + fullText_.substring(tag2Idx + thinkTags[1].length, Infinity)
 
 		return { fullText, fullReasoning }
