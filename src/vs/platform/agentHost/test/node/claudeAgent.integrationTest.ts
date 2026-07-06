@@ -115,6 +115,7 @@ function makeMessage(model: string): Anthropic.Message {
 			inference_geo: null,
 			server_tool_use: null,
 			service_tier: null,
+			output_tokens_details: null,
 		},
 	};
 }
@@ -141,6 +142,7 @@ function makeCannedStream(model: string): Anthropic.MessageStreamEvent[] {
 			cache_creation_input_tokens: null,
 			cache_read_input_tokens: null,
 			server_tool_use: null,
+			output_tokens_details: null,
 		},
 	};
 	return [
@@ -195,6 +197,7 @@ function makeResultSuccess(sessionId: string): SDKResultSuccess {
 			server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
 			service_tier: 'standard',
 			speed: 'standard',
+			output_tokens_details: { thinking_tokens: 0 },
 		},
 		modelUsage: {},
 		permission_denials: [],
@@ -420,7 +423,9 @@ class RoundTripQuery implements AsyncGenerator<SDKMessage, void> {
 				const result = await startup.canUseTool(item.toolName, item.input, {
 					signal: new AbortController().signal,
 					toolUseID: item.toolUseID,
+					requestId: item.toolUseID,
 				});
+				if (result === null) { throw new Error('integration test: canUseTool returned null'); }
 				this._sdk.canUseToolResults.push(result);
 				continue;
 			}
@@ -458,6 +463,11 @@ class RoundTripQuery implements AsyncGenerator<SDKMessage, void> {
 	reconnectMcpServer(): never { throw new Error('not modeled'); }
 	toggleMcpServer(): never { throw new Error('not modeled'); }
 	setMcpServers(): never { throw new Error('not modeled'); }
+	setMcpPermissionModeOverride(): never { throw new Error('not modeled'); }
+	reinitialize(): never { throw new Error('not modeled'); }
+	usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(): never { throw new Error('not modeled'); }
+	reloadSkills(): never { throw new Error('not modeled'); }
+	backgroundTasks(): never { throw new Error('not modeled'); }
 	streamInput(): never { throw new Error('not modeled'); }
 	stopTask(): never { throw new Error('not modeled'); }
 	close(): void { /* no-op */ }

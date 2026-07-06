@@ -8,7 +8,7 @@ import { betaConversationsStartStream } from '@mistralai/mistralai/funcs/betaCon
 import { betaConversationsAppendStream } from '@mistralai/mistralai/funcs/betaConversationsAppendStream.js';
 import { betaConversationsGetHistory } from '@mistralai/mistralai/funcs/betaConversationsGetHistory.js';
 import { modelsList } from '@mistralai/mistralai/funcs/modelsList.js';
-import type { ConversationAppendStreamRequest, ConversationEvents, ConversationHistory, ConversationStreamRequest } from '@mistralai/mistralai/models/components/index.js';
+import type { BaseModelCard, ConversationAppendStreamRequest, ConversationEvents, ConversationHistory, ConversationStreamRequest, FTModelCard } from '@mistralai/mistralai/models/components/index.js';
 import type { EventStream } from '@mistralai/mistralai/lib/event-streams.js';
 import type { Result } from '@mistralai/mistralai/types/fp.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -175,13 +175,17 @@ export class MistralApiService extends Disposable implements IMistralApiService 
 
 	async models(apiKey: string, options?: IMistralRequestOptions): Promise<IMistralModel[]> {
 		const list = await this._rateLimited(options?.signal, () => this._unwrap(modelsList(this._core(apiKey), undefined, this._requestOptions(options))));
-		return (list.data ?? []).map(m => ({
-			id: m.id,
-			name: m.name ?? m.id,
-			maxContextWindow: m.maxContextLength ?? undefined,
-			supportsFunctionCalling: m.capabilities?.functionCalling ?? false,
-			supportsVision: m.capabilities?.vision ?? false,
-		}));
+		// v2 types the catalog as `BaseModelCard | FTModelCard | Unknown<"type">`; drop the
+		// Unknown fallback (no id/capabilities) before reading model fields.
+		return (list.data ?? [])
+			.filter((m): m is BaseModelCard | FTModelCard => m.type === 'base' || m.type === 'fine-tuned')
+			.map(m => ({
+				id: m.id,
+				name: m.name ?? m.id,
+				maxContextWindow: m.maxContextLength ?? undefined,
+				supportsFunctionCalling: m.capabilities?.functionCalling ?? false,
+				supportsVision: m.capabilities?.vision ?? false,
+			}));
 	}
 
 	startConversationStream(apiKey: string, request: ConversationStreamRequest, options?: IMistralRequestOptions): Promise<EventStream<ConversationEvents>> {

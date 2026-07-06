@@ -115,7 +115,10 @@ const parseHeadersJSON = (s: string | undefined): Record<string, string | null |
 }
 
 const newOpenAICompatibleSDK = async ({ settingsOfProvider, providerName }: { settingsOfProvider: SettingsOfProvider, providerName: ProviderName }) => {
-	const commonPayloadOpts: ClientOptions = {
+	// Pick only the fields we actually set: typing this as the full ClientOptions would spread
+	// every optional field (e.g. openai v6's nullable `apiKey`, the new `provider`) into the
+	// AzureOpenAI construction below, which declares stricter `apiKey`/`provider` types.
+	const commonPayloadOpts: Pick<ClientOptions, 'dangerouslyAllowBrowser' | 'fetch'> = {
 		dangerouslyAllowBrowser: true,
 		fetch: openAITolerantFetch,
 	}
