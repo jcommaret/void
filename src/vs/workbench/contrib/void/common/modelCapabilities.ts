@@ -123,24 +123,13 @@ export const defaultModelsOfProvider = {
 	lmStudio: [], // autodetected
 	mlx: [], // autodetected — mlx_lm.server
 	appleFoundationModels: [], // autodetected via afm /v1/models (model id: `foundation`)
-	openRouter: [ // https://openrouter.ai/models
+	openRouter: [ // https://openrouter.ai/models — one model per provider
 		'anthropic/claude-fable-5',
-		'anthropic/claude-opus-4.8',
-		'anthropic/claude-sonnet-5',
-		'anthropic/claude-opus-4.7',
-		'anthropic/claude-sonnet-4.6',
 		'google/gemini-2.5-pro',
-		'google/gemini-2.5-flash',
 		'openai/gpt-5.5',
 		'qwen/qwen3-235b-a22b',
 		'deepseek/deepseek-r1',
 		'mistralai/devstral-latest',
-		'mistralai/mistral-large-latest',
-		'mistralai/mistral-medium-latest',
-		'mistralai/mistral-small-latest',
-		'mistralai/open-mistral-nemo',
-		'mistralai/open-codestral-mamba',
-		'mistralai/open-mixtral-8x22b',
 	],
 	groq: [ // https://console.groq.com/docs/models
 		'openai/gpt-oss-120b',
@@ -162,7 +151,7 @@ export const defaultModelsOfProvider = {
 		'ministral-8b-latest',
 		'ministral-3b-latest',
 		'open-mistral-nemo',
-		'open-codestral-mamba',
+		'open-codestral-mamba-2407',
 		'open-mixtral-8x22b',
 		'open-mixtral-8x7b',
 	],
@@ -489,9 +478,9 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('qwq')) { return toFallback(openSourceModelOptions_assumingOAICompat, 'qwq') }
 	if (lower.includes('phi4')) return toFallback(openSourceModelOptions_assumingOAICompat, 'phi4')
 
-	// mistral open-weight models — check before 'codestral' so 'open-codestral-mamba' routes here
+	// mistral open-weight models — check before 'codestral' so 'open-codestral-mamba-2407' routes here
 	if (lower.includes('nemo')) return toFallback(mistralModelOptions, 'open-mistral-nemo')
-	if (lower.includes('mamba')) return toFallback(mistralModelOptions, 'open-codestral-mamba')
+	if (lower.includes('mamba')) return toFallback(mistralModelOptions, 'open-codestral-mamba-2407')
 	if (lower.includes('mixtral')) return toFallback(mistralModelOptions, lower.includes('8x7') ? 'open-mixtral-8x7b' : 'open-mixtral-8x22b')
 
 	if (lower.includes('codestral')) return toFallback(openSourceModelOptions_assumingOAICompat, 'codestral')
@@ -1241,7 +1230,7 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
-	'open-codestral-mamba': { // Codestral Mamba 7B — https://docs.mistral.ai/models/model-cards/codestral-mamba
+	'open-codestral-mamba-2407': { // Codestral Mamba 7B — https://docs.mistral.ai/models/model-cards/codestral-mamba
 		contextWindow: 256_000,
 		reservedOutputTokenSpace: 8_192,
 		cost: { input: 0.15, output: 0.15 },
@@ -1279,7 +1268,7 @@ const mistralSettings: VoidStaticProviderInfo = {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof mistralModelOptions | null = null
 		if (lower.includes('nemo')) fallbackName = 'open-mistral-nemo'
-		else if (lower.includes('mamba')) fallbackName = 'open-codestral-mamba'
+		else if (lower.includes('mamba')) fallbackName = 'open-codestral-mamba-2407'
 		else if (lower.includes('mixtral')) fallbackName = lower.includes('8x7') ? 'open-mixtral-8x7b' : 'open-mixtral-8x22b'
 		else if (lower.includes('codestral')) fallbackName = 'codestral-latest'
 		else if (lower.includes('magistral')) fallbackName = lower.includes('small') ? 'mistral-small-latest' : 'magistral-medium-latest'

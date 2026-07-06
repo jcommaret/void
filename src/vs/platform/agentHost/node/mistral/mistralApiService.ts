@@ -177,8 +177,20 @@ export class MistralApiService extends Disposable implements IMistralApiService 
 		const list = await this._rateLimited(options?.signal, () => this._unwrap(modelsList(this._core(apiKey), undefined, this._requestOptions(options))));
 		// v2 types the catalog as `BaseModelCard | FTModelCard | Unknown<"type">`; drop the
 		// Unknown fallback (no id/capabilities) before reading model fields.
-		return (list.data ?? [])
-			.filter((m): m is BaseModelCard | FTModelCard => m.type === 'base' || m.type === 'fine-tuned')
+		const cards = (list.data ?? [])
+			.filter((m): m is BaseModelCard | FTModelCard => m.type === 'base' || m.type === 'fine-tuned');
+		// The catalog returns alias ids (e.g. `mistral-large-latest`) as their own
+		// entries alongside the concrete dated id they point to (e.g. `mistral-large-2512`),
+		// so a model shows up twice in the picker. Drop any card whose id is listed as
+		// another card's alias, keeping the single canonical entry.
+		const aliasedIds = new Set<string>();
+		for (const m of cards) {
+			for (const alias of m.aliases ?? []) {
+				aliasedIds.add(alias);
+			}
+		}
+		return cards
+			.filter(m => !aliasedIds.has(m.id))
 			.map(m => ({
 				id: m.id,
 				name: m.name ?? m.id,
