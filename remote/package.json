@@ -52,9 +52,6 @@
     "node-gyp-build": "4.8.1",
     "kerberos@2.1.1": {
       "node-addon-api": "7.1.0"
-    },
-    "ssh2": {
-      "cpu-features": "0.0.0"
     }
   }
 }
