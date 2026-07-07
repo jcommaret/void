@@ -694,8 +694,10 @@ export function detectsHighConfidenceInputPattern(cursorLine: string): boolean {
 		// Examples:
 		//   "? Do you want to install jsdom? <chevron>"  (prompts)
 		//   "? Pick a color <chevron> "                  (enquirer)
-		// allow-any-unicode-next-line
-		/^(?:\s|\x1b\[[0-9;]*m)*\?.*[›❯▸▶]\s*$/,
+		// Chevrons (U+203A, U+276F, U+25B8, U+25B6) as unicode escapes so the minified
+		// output stays ASCII-only: esbuild escapes string literals automatically but
+		// leaves regex literals as-is.
+		/^(?:\s|\x1b\[[0-9;]*m)*\?.*[\u203A\u276F\u25B8\u25B6]\s*$/,
 	].some(e => e.test(cursorLine));
 }
 
