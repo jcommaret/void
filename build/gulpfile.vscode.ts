@@ -102,9 +102,6 @@ const vscodeResourceIncludes = [
 
 	// Sessions
 	'out-build/vs/sessions/contrib/chat/browser/media/*.svg',
-	'out-build/vs/sessions/contrib/welcome/browser/media/*.svg',
-	'out-build/vs/sessions/contrib/welcome/browser/media/themePreviews/*.svg',
-	'out-build/vs/sessions/prompts/*.prompt.md',
 	'out-build/vs/sessions/skills/**/SKILL.md',
 
 	// Extensions
