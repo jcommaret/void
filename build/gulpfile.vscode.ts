@@ -239,7 +239,16 @@ function computeChecksum(filename: string): string {
  * when the directory is absent instead of failing the glob walk with ENOENT.
  */
 function optionalSrc(dir: string, globs: string | string[], opts: Parameters<typeof gulp.src>[1]): NodeJS.ReadWriteStream {
-	return fs.existsSync(dir) ? gulp.src(globs, opts) : es.readArray([]);
+	return fs.existsSync(dir) ? esSrc(globs, opts) : es.readArray([]);
+}
+
+/**
+ * gulp 5 readables are streamx-based: when piped they unconditionally call
+ * dest.end(), but the bare merge stream returned by es.merge has no end()
+ * method. Interpose a classic through stream so the source can be merged.
+ */
+function esSrc(globs: string | string[], opts?: Parameters<typeof gulp.src>[1]): NodeJS.ReadWriteStream {
+	return gulp.src(globs, opts).pipe(es.through());
 }
 
 function packageTask(platform: string, arch: string, sourceFolderName: string, destinationFolderName: string, _opts?: { stats?: boolean }) {
@@ -276,7 +285,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			return !set.has(platform);
 		}).map(ext => `!.build/extensions/${ext.name}/**`);
 
-		const extensions = gulp.src(['.build/extensions/**', '!.build/extensions/copilot/**', ...platformSpecificBuiltInExtensionsExclusions], { base: '.build', dot: true });
+		const extensions = esSrc(['.build/extensions/**', '!.build/extensions/copilot/**', ...platformSpecificBuiltInExtensionsExclusions], { base: '.build', dot: true });
 
 		const sourceFilterPattern = stripSourceMapsInPackagingTasks
 			? ['**', '!**/*.{js,css}.map']
@@ -320,10 +329,11 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				this.emit('data', file);
 			}));
 
-		const license = es.merge(
-			gulp.src([product.licenseFileName, 'ThirdPartyNotices.txt'], { base: '.', allowEmpty: true }),
-			optionalSrc('licenses', 'licenses/**', { base: '.' })
-		);
+		const licenseGlobs = [product.licenseFileName, 'ThirdPartyNotices.txt'];
+		if (fs.existsSync('licenses')) {
+			licenseGlobs.push('licenses/**');
+		}
+		const license = esSrc(licenseGlobs, { base: '.', allowEmpty: true });
 
 		// TODO the API should be copied to `out` during compile, not here
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
@@ -380,7 +390,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		let all = es.merge(...mergeStreams);
 
 		if (platform === 'win32') {
-			all = es.merge(all, gulp.src([
+			all = es.merge(all, esSrc([
 				'resources/win32/bower.ico',
 				'resources/win32/c.ico',
 				'resources/win32/code.ico',
@@ -415,7 +425,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		} else if (platform === 'linux') {
 			const policyDest = optionalSrc('.build/policies/linux', '.build/policies/linux/**', { base: '.build/policies/linux' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`));
-			all = es.merge(all, gulp.src('resources/linux/code.png', { base: '.' }), policyDest);
+			all = es.merge(all, esSrc('resources/linux/code.png', { base: '.' }), policyDest);
 		} else if (platform === 'darwin') {
 			const shortcut = gulp.src('resources/darwin/bin/code.sh')
 				.pipe(replace('@@APPNAME@@', product.applicationName))
@@ -457,7 +467,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		}
 
 		if (platform === 'win32') {
-			result = es.merge(result, gulp.src('resources/win32/bin/code.js', { base: 'resources/win32', allowEmpty: true }));
+			result = es.merge(result, esSrc('resources/win32/bin/code.js', { base: 'resources/win32', allowEmpty: true }));
 
 			if (versionedResourcesFolder) {
 				result = es.merge(result, gulp.src('resources/win32/versioned/bin/code.cmd', { base: 'resources/win32/versioned' })
