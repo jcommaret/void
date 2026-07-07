@@ -233,6 +233,15 @@ function computeChecksum(filename: string): string {
 	return hash;
 }
 
+/**
+ * Some `.build` inputs (telemetry, policies, appx) are produced by external
+ * pipeline steps that do not run in this build. Substitute an empty stream
+ * when the directory is absent instead of failing the glob walk with ENOENT.
+ */
+function optionalSrc(dir: string, globs: string | string[], opts: Parameters<typeof gulp.src>[1]): NodeJS.ReadWriteStream {
+	return fs.existsSync(dir) ? gulp.src(globs, opts) : es.readArray([]);
+}
+
 function packageTask(platform: string, arch: string, sourceFolderName: string, destinationFolderName: string, _opts?: { stats?: boolean }) {
 	const destination = path.join(path.dirname(root), destinationFolderName);
 	platform = platform || process.platform;
@@ -316,7 +325,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		// TODO the API should be copied to `out` during compile, not here
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
-		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
+		// .build/telemetry is produced by an external telemetry-extraction step that
+		// does not run in this build; skip it when absent.
+		const telemetry = optionalSrc('.build/telemetry', '.build/telemetry/**', { base: '.build/telemetry', dot: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(import.meta.dirname, '..'));
@@ -399,7 +410,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				'resources/win32/code_150x150.png'
 			], { base: '.' }));
 		} else if (platform === 'linux') {
-			const policyDest = gulp.src('.build/policies/linux/**', { base: '.build/policies/linux' })
+			const policyDest = optionalSrc('.build/policies/linux', '.build/policies/linux/**', { base: '.build/policies/linux' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`));
 			all = es.merge(all, gulp.src('resources/linux/code.png', { base: '.' }), policyDest);
 		} else if (platform === 'darwin') {
@@ -407,7 +418,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(replace('@@APPNAME@@', product.applicationName))
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(rename('bin/code'));
-			const policyDest = gulp.src('.build/policies/darwin/**', { base: '.build/policies/darwin' })
+			const policyDest = optionalSrc('.build/policies/darwin', '.build/policies/darwin/**', { base: '.build/policies/darwin' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`));
 			all = es.merge(all, shortcut, policyDest);
 		}
@@ -481,11 +492,11 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(replace('@@VERSIONFOLDER@@', versionedResourcesFolder ? `${versionedResourcesFolder}\\` : ''))
 				.pipe(rename(product.nameShort + '.VisualElementsManifest.xml')));
 
-			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
+			result = es.merge(result, optionalSrc('.build/policies/win32', '.build/policies/win32/**', { base: '.build/policies/win32' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
 			if (quality === 'stable' || quality === 'insider') {
-				result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
+				result = es.merge(result, optionalSrc('.build/win32/appx', '.build/win32/appx/**', { base: '.build/win32' }));
 				const rawVersion = version.replace(/-\w+$/, '').split('.');
 				const appxVersion = `${rawVersion[0]}.0.${rawVersion[1]}.${rawVersion[2]}`;
 				result = es.merge(result, gulp.src('resources/win32/appx/AppxManifest.xml', { base: '.' })
