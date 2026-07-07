@@ -753,7 +753,7 @@ impl DevTunnels {
 		let recyclable = existing_tunnels
 			.iter()
 			.filter(|t| !tunnel_has_host_connection(t))
-			.choose(&mut rand::thread_rng());
+			.choose(&mut rand::rng());
 
 		match recyclable {
 			Some(tunnel) => {
