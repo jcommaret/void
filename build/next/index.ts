@@ -287,8 +287,6 @@ const desktopResourcePatterns = [
 	'vs/workbench/contrib/welcomeGettingStarted/common/media/**/*.png',
 	'vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
 	'vs/workbench/contrib/extensions/browser/media/{theme-icon.png,language-icon.svg}',
-	'vs/workbench/services/extensionManagement/common/media/*.svg',
-	'vs/workbench/services/extensionManagement/common/media/*.png',
 	'vs/workbench/browser/parts/editor/media/*.png',
 	'vs/workbench/contrib/debug/browser/media/*.png',
 
@@ -307,8 +305,6 @@ const serverResourcePatterns = [
 
 	// Terminal shell integration
 	'vs/workbench/contrib/terminal/common/scripts/shellIntegration.ps1',
-	'vs/workbench/contrib/terminal/common/scripts/CodeTabExpansion.psm1',
-	'vs/workbench/contrib/terminal/common/scripts/GitTabExpansion.psm1',
 	'vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh',
 	'vs/workbench/contrib/terminal/common/scripts/shellIntegration-env.zsh',
 	'vs/workbench/contrib/terminal/common/scripts/shellIntegration-profile.zsh',
@@ -347,8 +343,6 @@ const serverWebResourcePatterns = [
 	'vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
 	'vs/workbench/contrib/extensions/browser/media/*.svg',
 	'vs/workbench/contrib/extensions/browser/media/*.png',
-	'vs/workbench/services/extensionManagement/common/media/*.svg',
-	'vs/workbench/services/extensionManagement/common/media/*.png',
 ];
 
 // Resources for standalone web target (browser-only, no server)
@@ -374,8 +368,6 @@ const webResourcePatterns = [
 	'vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
 	'vs/workbench/contrib/extensions/browser/media/*.svg',
 	'vs/workbench/contrib/extensions/browser/media/*.png',
-	'vs/workbench/services/extensionManagement/common/media/*.svg',
-	'vs/workbench/services/extensionManagement/common/media/*.png',
 ];
 
 /**
