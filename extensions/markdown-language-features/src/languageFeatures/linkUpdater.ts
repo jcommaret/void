@@ -5,7 +5,7 @@
 
 import * as picomatch from 'picomatch';
 import * as vscode from 'vscode';
-import { TextDocumentEdit } from 'vscode-languageclient';
+import { TextDocumentEdit, TextEdit } from 'vscode-languageclient';
 import { Utils } from 'vscode-uri';
 import { MdLanguageClient } from '../client/client';
 import { Delayer } from '../util/async';
@@ -183,7 +183,7 @@ class UpdateLinksOnFileRenameHandler extends Disposable {
 
 		for (const change of result.edit.documentChanges as TextDocumentEdit[]) {
 			const uri = vscode.Uri.parse(change.textDocument.uri);
-			for (const edit of change.edits) {
+			for (const edit of change.edits as TextEdit[]) {
 				workspaceEdit.replace(uri, convertRange(edit.range), edit.newText);
 			}
 		}

@@ -38,7 +38,7 @@ export class MdLanguageClient implements IDisposable {
 	}
 
 	getEditForFileRenames(files: ReadonlyArray<{ oldUri: string; newUri: string }>, token: vscode.CancellationToken) {
-		return this.#client.sendRequest(proto.getEditForFileRenames, files, token);
+		return this.#client.sendRequest(proto.getEditForFileRenames, [...files], token);
 	}
 
 	getReferencesToFileInWorkspace(resource: vscode.Uri, token: vscode.CancellationToken) {
