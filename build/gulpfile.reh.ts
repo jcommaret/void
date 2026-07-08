@@ -29,6 +29,7 @@ import { promisify } from 'util';
 import rceditCallback from 'rcedit';
 import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
+import { excludedExtensions } from './lib/extensions.ts';
 import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
 import log from 'fancy-log';
@@ -301,7 +302,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 				const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, extensionPath)).toString());
 				return !isUIExtension(manifest);
 			}).map((extensionPath) => path.basename(path.dirname(extensionPath)))
-			.filter(name => name !== 'vscode-api-tests' && name !== 'vscode-test-resolver'); // Do not ship the test extensions
+			.filter(name => !excludedExtensions.includes(name)); // Do not ship extensions that are never compiled into .build/extensions
 		const builtInExtensions: Array<{ name: string; platforms?: string[]; clientOnly?: boolean }> = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).builtInExtensions;
 		const marketplaceExtensions = builtInExtensions
 			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
@@ -441,10 +442,10 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 
 	return async () => {
 		const deps = (await Promise.all([
-			// conpty_console_list.node is a node-pty helper agent binary that rcedit
-			// cannot parse ("Unable to load file"); patching its version resource is
-			// cosmetic only, so skip it (mirrors the @parcel/watcher exclusion in gulpfile.vscode.ts)
-			promisify(glob)('**/*.node', { cwd, ignore: '**/node-pty/build/Release/conpty_console_list.node' }),
+			// conpty.node and conpty_console_list.node are node-pty's ConPTY native
+			// addons; rcedit cannot parse them ("Unable to load file"), so patching
+			// their version resource is skipped (cosmetic only)
+			promisify(glob)('**/*.node', { cwd, ignore: ['**/node-pty/build/Release/conpty.node', '**/node-pty/build/Release/conpty_console_list.node'] }),
 			promisify(glob)('**/rg.exe', { cwd }),
 		])).flatMap(o => o);
 		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));

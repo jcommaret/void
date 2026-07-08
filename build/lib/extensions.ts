@@ -316,7 +316,7 @@ const nativeExtensions = [
 	'microsoft-authentication',
 ];
 
-const excludedExtensions = [
+export const excludedExtensions = [
 	'copilot',
 	'vscode-api-tests',
 	'vscode-colorize-tests',

@@ -14,7 +14,7 @@ import filter from 'gulp-filter';
 import electron from '@vscode/gulp-electron';
 import jsonEditor from 'gulp-json-editor';
 import * as util from './lib/util.ts';
-import { getVersion } from './lib/getVersion.ts';
+import { getVersion, getVoidVersion } from './lib/getVersion.ts';
 import { readISODate, writeISODate } from './lib/date.ts';
 import * as task from './lib/task.ts';
 import buildfile from './buildfile.ts';
@@ -322,6 +322,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				json.date = readISODate(out);
 				json.checksums = checksums;
 				json.version = version;
+				json.voidVersion = getVoidVersion(root, json.voidVersion as string);
 				return json;
 			}))
 			.pipe(es.through(function (file) {
@@ -620,7 +621,10 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	return async () => {
 		const versionedResourcesFolder = util.getVersionedResourcesFolder('win32', commit!);
 		const deps = (await Promise.all([
-			glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' }),
+			// conpty.node and conpty_console_list.node are node-pty's ConPTY native
+			// addons; rcedit cannot parse them ("Unable to load file"), so patching
+			// their version resource is skipped (cosmetic only)
+			glob('**/*.node', { cwd, ignore: ['extensions/node_modules/@parcel/watcher/**', '**/node-pty/build/Release/conpty.node', '**/node-pty/build/Release/conpty_console_list.node'] }),
 			glob('**/rg.exe', { cwd }),
 			glob('**/*explorer_command*.dll', { cwd }),
 		])).flatMap(o => o);
