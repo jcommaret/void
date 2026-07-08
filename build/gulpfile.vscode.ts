@@ -251,6 +251,29 @@ function esSrc(globs: string | string[], opts?: Parameters<typeof gulp.src>[1]):
 	return gulp.src(globs, opts).pipe(es.through());
 }
 
+/**
+ * inlineMeta() needs the edited package.json/product.json contents as plain strings,
+ * ahead of when the bootstrap entry point files stream through it. es.merge() does not
+ * guarantee the single-file jsonEditor streams flow before those entry points, so reading
+ * the contents back via a stream side-effect race under gulp 5 (the entry point can arrive
+ * first, leaving the string empty and inlineMeta's JSON.parse throwing). Compute the edited
+ * JSON synchronously instead; the streams below are only used for the packaged output file.
+ */
+function readEditedJson(repoRelativePath: string, edit: Record<string, unknown> | ((json: Record<string, unknown>) => Record<string, unknown>)): string {
+	const json = JSON.parse(fs.readFileSync(path.join(root, repoRelativePath), 'utf8'));
+	if (typeof edit === 'function') {
+		return JSON.stringify(edit(json));
+	}
+	for (const [key, value] of Object.entries(edit)) {
+		if (value === undefined) {
+			delete json[key];
+		} else {
+			json[key] = value;
+		}
+	}
+	return JSON.stringify(json);
+}
+
 function packageTask(platform: string, arch: string, sourceFolderName: string, destinationFolderName: string, _opts?: { stats?: boolean }) {
 	const destination = path.join(path.dirname(root), destinationFolderName);
 	platform = platform || process.platform;
@@ -307,28 +330,21 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 			packageJsonUpdates.desktopName = `${product.applicationName}.desktop`;
 		}
 
-		let packageJsonContents: string;
+		const packageJsonContents = readEditedJson('package.json', packageJsonUpdates);
 		const packageJsonStream = gulp.src(['package.json'], { base: '.' })
-			.pipe(jsonEditor(packageJsonUpdates))
-			.pipe(es.through(function (file) {
-				packageJsonContents = file.contents.toString();
-				this.emit('data', file);
-			}));
+			.pipe(jsonEditor(packageJsonUpdates));
 
-		let productJsonContents: string;
+		const productJsonEdit = (json: Record<string, unknown>) => {
+			json.commit = commit;
+			json.date = readISODate(out);
+			json.checksums = checksums;
+			json.version = version;
+			json.voidVersion = getVoidVersion(root, json.voidVersion as string);
+			return json;
+		};
+		const productJsonContents = readEditedJson('product.json', productJsonEdit);
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			.pipe(jsonEditor((json: Record<string, unknown>) => {
-				json.commit = commit;
-				json.date = readISODate(out);
-				json.checksums = checksums;
-				json.version = version;
-				json.voidVersion = getVoidVersion(root, json.voidVersion as string);
-				return json;
-			}))
-			.pipe(es.through(function (file) {
-				productJsonContents = file.contents.toString();
-				this.emit('data', file);
-			}));
+			.pipe(jsonEditor(productJsonEdit));
 
 		const licenseGlobs = [product.licenseFileName, 'ThirdPartyNotices.txt'];
 		if (fs.existsSync('licenses')) {
@@ -344,7 +360,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		const telemetry = optionalSrc('.build/telemetry', '.build/telemetry/**', { base: '.build/telemetry', dot: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
-		const root = path.resolve(path.join(import.meta.dirname, '..'));
 		const productionDependencies = getProductionDependencies(root);
 		// Exclude nested node_modules/.bin: the npm shims are relative symlinks
 		// which vinyl-fs 4 (gulp 5) stats against cwd instead of the link's
@@ -621,10 +636,7 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	return async () => {
 		const versionedResourcesFolder = util.getVersionedResourcesFolder('win32', commit!);
 		const deps = (await Promise.all([
-			// conpty.node and conpty_console_list.node are node-pty's ConPTY native
-			// addons; rcedit cannot parse them ("Unable to load file"), so patching
-			// their version resource is skipped (cosmetic only)
-			glob('**/*.node', { cwd, ignore: ['extensions/node_modules/@parcel/watcher/**', '**/node-pty/build/Release/conpty.node', '**/node-pty/build/Release/conpty_console_list.node'] }),
+			glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' }),
 			glob('**/rg.exe', { cwd }),
 			glob('**/*explorer_command*.dll', { cwd }),
 		])).flatMap(o => o);
@@ -635,19 +647,26 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 		const patchPromises = deps.map<Promise<unknown>>(async dep => {
 			const basename = path.basename(dep);
 
-			await rcedit(path.join(cwd, dep), {
-				'file-version': baseVersion,
-				'version-string': {
-					'CompanyName': 'Microsoft Corporation',
-					'FileDescription': product.nameLong,
-					'FileVersion': packageJson.version,
-					'InternalName': basename,
-					'LegalCopyright': 'Copyright (C) 2026 Microsoft. All rights reserved',
-					'OriginalFilename': basename,
-					'ProductName': product.nameLong,
-					'ProductVersion': packageJson.version,
-				}
-			});
+			try {
+				await rcedit(path.join(cwd, dep), {
+					'file-version': baseVersion,
+					'version-string': {
+						'CompanyName': 'Microsoft Corporation',
+						'FileDescription': product.nameLong,
+						'FileVersion': packageJson.version,
+						'InternalName': basename,
+						'LegalCopyright': 'Copyright (C) 2026 Microsoft. All rights reserved',
+						'OriginalFilename': basename,
+						'ProductName': product.nameLong,
+						'ProductVersion': packageJson.version,
+					}
+				});
+			} catch (err) {
+				// Some vendored native binaries (node-pty's conpty*.node, windows-foreground-love, etc.)
+				// are PE files rcedit cannot parse ("Unable to load file"). The version resource patch
+				// is cosmetic only, so skip that file and keep going instead of failing the whole build.
+				console.warn(`[patchWin32Dependencies] Skipping rcedit for ${dep}: ${(err as Error).message}`);
+			}
 		});
 
 		await Promise.all(patchPromises);

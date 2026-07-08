@@ -265,6 +265,26 @@ function esSrc(globs: string | string[], opts?: Parameters<typeof gulp.src>[1]):
 	return gulp.src(globs, opts).pipe(es.through());
 }
 
+/**
+ * inlineMeta() needs the edited package.json/product.json contents as plain strings,
+ * ahead of when the bootstrap entry point files stream through it. es.merge() does not
+ * guarantee the single-file jsonEditor streams flow before those entry points, so reading
+ * the contents back via a stream side-effect race under gulp 5 (the entry point can arrive
+ * first, leaving the string empty and inlineMeta's JSON.parse throwing). Compute the edited
+ * JSON synchronously instead; the streams below are only used for the packaged output file.
+ */
+function readEditedJson(repoRelativePath: string, edits: Record<string, unknown>): string {
+	const json = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, repoRelativePath), 'utf8'));
+	for (const [key, value] of Object.entries(edits)) {
+		if (value === undefined) {
+			delete json[key];
+		} else {
+			json[key] = value;
+		}
+	}
+	return JSON.stringify(json);
+}
+
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
@@ -325,21 +345,15 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 
 		const name = product.nameShort;
 
-		let packageJsonContents = '';
+		const packageJsonEdits = { name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' };
+		const packageJsonContents = readEditedJson('remote/package.json', packageJsonEdits);
 		const packageJsonStream = gulp.src(['remote/package.json'], { base: 'remote' })
-			.pipe(jsonEditor({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
-			.pipe(es.through(function (file) {
-				packageJsonContents = file.contents.toString();
-				this.emit('data', file);
-			}));
+			.pipe(jsonEditor(packageJsonEdits));
 
-		let productJsonContents = '';
+		const productJsonEdits = { commit, date: readISODate(sourceFolderName), version };
+		const productJsonContents = readEditedJson('product.json', productJsonEdits);
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			.pipe(jsonEditor({ commit, date: readISODate(sourceFolderName), version }))
-			.pipe(es.through(function (file) {
-				productJsonContents = file.contents.toString();
-				this.emit('data', file);
-			}));
+			.pipe(jsonEditor(productJsonEdits));
 
 		const license = esSrc(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
 
@@ -442,10 +456,7 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 
 	return async () => {
 		const deps = (await Promise.all([
-			// conpty.node and conpty_console_list.node are node-pty's ConPTY native
-			// addons; rcedit cannot parse them ("Unable to load file"), so patching
-			// their version resource is skipped (cosmetic only)
-			promisify(glob)('**/*.node', { cwd, ignore: ['**/node-pty/build/Release/conpty.node', '**/node-pty/build/Release/conpty_console_list.node'] }),
+			promisify(glob)('**/*.node', { cwd }),
 			promisify(glob)('**/rg.exe', { cwd }),
 		])).flatMap(o => o);
 		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));
@@ -455,19 +466,26 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 		const patchPromises = deps.map<Promise<unknown>>(async dep => {
 			const basename = path.basename(dep);
 
-			await rcedit(path.join(cwd, dep), {
-				'file-version': baseVersion,
-				'version-string': {
-					'CompanyName': 'Microsoft Corporation',
-					'FileDescription': productContents.nameLong,
-					'FileVersion': packageJsonContents.version,
-					'InternalName': basename,
-					'LegalCopyright': 'Copyright (C) 2026 Microsoft. All rights reserved',
-					'OriginalFilename': basename,
-					'ProductName': productContents.nameLong,
-					'ProductVersion': packageJsonContents.version,
-				}
-			});
+			try {
+				await rcedit(path.join(cwd, dep), {
+					'file-version': baseVersion,
+					'version-string': {
+						'CompanyName': 'Microsoft Corporation',
+						'FileDescription': productContents.nameLong,
+						'FileVersion': packageJsonContents.version,
+						'InternalName': basename,
+						'LegalCopyright': 'Copyright (C) 2026 Microsoft. All rights reserved',
+						'OriginalFilename': basename,
+						'ProductName': productContents.nameLong,
+						'ProductVersion': packageJsonContents.version,
+					}
+				});
+			} catch (err) {
+				// Some vendored native binaries (node-pty's conpty*.node, etc.) are PE files
+				// rcedit cannot parse ("Unable to load file"). The version resource patch is
+				// cosmetic only, so skip that file and keep going instead of failing the build.
+				log.warn(`[patchWin32Dependencies] Skipping rcedit for ${dep}: ${(err as Error).message}`);
+			}
 		});
 
 		await Promise.all(patchPromises);

@@ -147,7 +147,15 @@ function copyInnoUpdater(arch: string) {
 function updateIcon(executablePath: string): task.CallbackTask {
 	return cb => {
 		const icon = path.join(repoPath, 'resources', 'win32', 'code.ico');
-		rcedit(executablePath, { icon }, cb);
+		rcedit(executablePath, { icon }, (err?: Error) => {
+			if (err) {
+				// inno_updater.exe is a vendored PE binary; rcedit occasionally cannot
+				// parse it ("Unable to load file"), e.g. on arm64. The icon patch is
+				// cosmetic only, so warn and continue instead of failing the build.
+				console.warn(`[updateIcon] Skipping rcedit for ${executablePath}: ${err.message}`);
+			}
+			cb?.();
+		});
 	};
 }
 
