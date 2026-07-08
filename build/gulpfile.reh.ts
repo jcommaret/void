@@ -255,6 +255,15 @@ function nodejs(platform: string, arch: string): NodeJS.ReadWriteStream | undefi
 	}
 }
 
+/**
+ * gulp 5 readables are streamx-based: when piped they unconditionally call
+ * dest.end(), but the bare merge stream returned by es.merge has no end()
+ * method. Interpose a classic through stream so the source can be merged.
+ */
+function esSrc(globs: string | string[], opts?: Parameters<typeof gulp.src>[1]): NodeJS.ReadWriteStream {
+	return gulp.src(globs, opts).pipe(es.through());
+}
+
 function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
@@ -301,8 +310,8 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);
 
-		const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
-		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
+		const extensions = esSrc(extensionPaths, { base: '.build', dot: true });
+		const extensionsCommonDependencies = esSrc('.build/extensions/node_modules/**', { base: '.build', dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.{js,css}.map'], { dot: true }));
 
@@ -331,7 +340,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 				this.emit('data', file);
 			}));
 
-		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
+		const license = esSrc(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
@@ -348,7 +357,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			.pipe(jsFilter.restore);
 
 		const nodePath = `.build/node/v${nodeVersion}/${platform}-${arch}`;
-		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
+		const node = esSrc(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web: NodeJS.ReadWriteStream[] = [];
 		if (type === 'reh-web') {
@@ -432,7 +441,10 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 
 	return async () => {
 		const deps = (await Promise.all([
-			promisify(glob)('**/*.node', { cwd }),
+			// conpty_console_list.node is a node-pty helper agent binary that rcedit
+			// cannot parse ("Unable to load file"); patching its version resource is
+			// cosmetic only, so skip it (mirrors the @parcel/watcher exclusion in gulpfile.vscode.ts)
+			promisify(glob)('**/*.node', { cwd, ignore: '**/node-pty/build/Release/conpty_console_list.node' }),
 			promisify(glob)('**/rg.exe', { cwd }),
 		])).flatMap(o => o);
 		const packageJsonContents = JSON.parse(await fs.promises.readFile(path.join(cwd, 'package.json'), 'utf8'));
