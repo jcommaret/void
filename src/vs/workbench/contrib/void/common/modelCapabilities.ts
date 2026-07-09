@@ -84,17 +84,16 @@ export const defaultModelsOfProvider = {
 		'gpt-5.4',
 		'gpt-5.4-mini',
 		'gpt-5.4-nano',
-		// o3 / o4-mini / gpt-4.1* kept as fallback targets (no longer featured by OpenAI)
 	],
 	anthropic: [ // https://docs.anthropic.com/en/docs/about-claude/models/overview
 		'claude-fable-5',
-		'claude-opus-4-8',
 		'claude-sonnet-5',
+		'claude-opus-4-8',
 		'claude-opus-4-7',
-		'claude-sonnet-4-6',
-		'claude-haiku-4-5',
 		'claude-opus-4-6',
+		'claude-sonnet-4-6',
 		'claude-sonnet-4-5',
+		'claude-haiku-4-5',
 		'claude-3-7-sonnet-latest',
 	],
 	xAI: [ // https://docs.x.ai/docs/models
@@ -105,8 +104,8 @@ export const defaultModelsOfProvider = {
 	],
 	gemini: [ // https://ai.google.dev/gemini-api/docs/models/gemini
 		'gemini-3.5-flash',
-		'gemini-3.1-flash-lite',
 		'gemini-3.1-pro-preview',
+		'gemini-3.1-flash-lite',
 		'gemini-2.5-pro',
 		'gemini-2.5-flash',
 		'gemini-2.5-flash-lite',
@@ -114,7 +113,6 @@ export const defaultModelsOfProvider = {
 	deepseek: [ // https://api-docs.deepseek.com/quick_start/pricing
 		'deepseek-v4-flash',
 		'deepseek-v4-pro',
-		// deepseek-chat / deepseek-reasoner kept as fallback targets (deprecated, retire 2026-07-24)
 	],
 	ollama: [ // autodetected
 	],
@@ -129,7 +127,7 @@ export const defaultModelsOfProvider = {
 		'openai/gpt-5.5',
 		'qwen/qwen3-235b-a22b',
 		'deepseek/deepseek-r1',
-		'mistralai/devstral-latest',
+		'mistralai/devstral-2512',
 	],
 	groq: [ // https://console.groq.com/docs/models
 		'openai/gpt-oss-120b',
@@ -144,16 +142,11 @@ export const defaultModelsOfProvider = {
 		'mistral-large-latest',
 		'mistral-medium-latest',
 		'mistral-small-latest',
-		'devstral-latest',
 		'codestral-latest',
-		'magistral-medium-latest',
+		'devstral-medium-latest',
 		'ministral-14b-latest',
 		'ministral-8b-latest',
 		'ministral-3b-latest',
-		'open-mistral-nemo',
-		'open-codestral-mamba-2407',
-		'open-mixtral-8x22b',
-		'open-mixtral-8x7b',
 	],
 	openAICompatible: [], // fallback
 	googleVertex: [],
@@ -459,8 +452,6 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 
 	if (lower.includes('deepseek') && (lower.includes('v4-pro') || lower.includes('v4_pro'))) return toFallback(deepseekModelOptions, 'deepseek-v4-pro')
 	if (lower.includes('deepseek') && (lower.includes('v4-flash') || lower.includes('v4_flash'))) return toFallback(deepseekModelOptions, 'deepseek-v4-flash')
-	if (lower.includes('deepseek-r1') || lower.includes('deepseek-reasoner')) return toFallback(deepseekModelOptions, 'deepseek-reasoner')
-	if (lower.includes('deepseek') && lower.includes('chat')) return toFallback(deepseekModelOptions, 'deepseek-chat')
 	if (lower.includes('deepseek')) return toFallback(deepseekModelOptions, 'deepseek-v4-flash')
 
 	// most specific first — 'llama3.1'/'3.2'/'3.3' all contain 'llama3', so those must be checked before it
@@ -478,15 +469,9 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('qwq')) { return toFallback(openSourceModelOptions_assumingOAICompat, 'qwq') }
 	if (lower.includes('phi4')) return toFallback(openSourceModelOptions_assumingOAICompat, 'phi4')
 
-	// mistral open-weight models — check before 'codestral' so 'open-codestral-mamba-2407' routes here
-	if (lower.includes('nemo')) return toFallback(mistralModelOptions, 'open-mistral-nemo')
-	if (lower.includes('mamba')) return toFallback(mistralModelOptions, 'open-codestral-mamba-2407')
-	if (lower.includes('mixtral')) return toFallback(mistralModelOptions, lower.includes('8x7') ? 'open-mixtral-8x7b' : 'open-mixtral-8x22b')
-
 	if (lower.includes('codestral')) return toFallback(openSourceModelOptions_assumingOAICompat, 'codestral')
 	if (lower.includes('devstral')) return toFallback(openSourceModelOptions_assumingOAICompat, 'devstral')
 
-	if (lower.includes('magistral')) return toFallback(mistralModelOptions, 'magistral-medium-latest')
 	if (lower.includes('ministral')) return toFallback(mistralModelOptions, 'ministral-8b-latest')
 	if (lower.includes('mistral') && lower.includes('medium')) return toFallback(mistralModelOptions, 'mistral-medium-latest')
 	if (lower.includes('mistral') && lower.includes('small')) return toFallback(mistralModelOptions, 'mistral-small-latest')
@@ -505,19 +490,6 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('gpt') && lower.includes('5.4') && lower.includes('nano')) return toFallback(openAIModelOptions, 'gpt-5.4-nano')
 	if (lower.includes('gpt') && lower.includes('5.4') && lower.includes('mini')) return toFallback(openAIModelOptions, 'gpt-5.4-mini')
 	if (lower.includes('gpt') && lower.includes('5.4')) return toFallback(openAIModelOptions, 'gpt-5.4')
-	if (lower.includes('gpt') && lower.includes('mini') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1-mini')
-	if (lower.includes('gpt') && lower.includes('nano') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1-nano')
-	if (lower.includes('gpt') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1')
-
-	if (lower.includes('4o') && lower.includes('mini')) return toFallback(openAIModelOptions, 'gpt-4.1-mini')
-	if (lower.includes('4o')) return toFallback(openAIModelOptions, 'gpt-4.1')
-
-	if (lower.includes('o1') && lower.includes('mini')) return toFallback(openAIModelOptions, 'o4-mini')
-	if (lower.includes('o1')) return toFallback(openAIModelOptions, 'o3')
-	if (lower.includes('o3') && lower.includes('mini')) return toFallback(openAIModelOptions, 'o4-mini')
-	if (lower.includes('o3')) return toFallback(openAIModelOptions, 'o3')
-	if (lower.includes('o4') && lower.includes('mini')) return toFallback(openAIModelOptions, 'o4-mini')
-
 
 	if (Object.keys(openSourceModelOptions_assumingOAICompat).map(k => k.toLowerCase()).includes(lower))
 		return toFallback(openSourceModelOptions_assumingOAICompat, lower as keyof typeof openSourceModelOptions_assumingOAICompat)
@@ -741,56 +713,6 @@ const openAIModelOptions = { // https://platform.openai.com/docs/pricing
 		supportsSystemMessage: 'developer-role',
 		reasoningCapabilities: openAIReasoningEffortCapabilities,
 	},
-	'o3': {
-		contextWindow: 1_047_576,
-		reservedOutputTokenSpace: 32_768,
-		cost: { input: 10.00, output: 40.00, cache_read: 2.50 },
-		downloadable: false,
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'developer-role',
-		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'medium', 'high'], default: 'low' } },
-	},
-	'o4-mini': {
-		contextWindow: 1_047_576,
-		reservedOutputTokenSpace: 32_768,
-		cost: { input: 1.10, output: 4.40, cache_read: 0.275 },
-		downloadable: false,
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'developer-role',
-		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'medium', 'high'], default: 'low' } },
-	},
-	'gpt-4.1': {
-		contextWindow: 1_047_576,
-		reservedOutputTokenSpace: 32_768,
-		cost: { input: 2.00, output: 8.00, cache_read: 0.50 },
-		downloadable: false,
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'developer-role',
-		reasoningCapabilities: false,
-	},
-	'gpt-4.1-mini': {
-		contextWindow: 1_047_576,
-		reservedOutputTokenSpace: 32_768,
-		cost: { input: 0.40, output: 1.60, cache_read: 0.10 },
-		downloadable: false,
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'developer-role',
-		reasoningCapabilities: false,
-	},
-	'gpt-4.1-nano': {
-		contextWindow: 1_047_576,
-		reservedOutputTokenSpace: 32_768,
-		cost: { input: 0.10, output: 0.40, cache_read: 0.03 },
-		downloadable: false,
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'developer-role',
-		reasoningCapabilities: false,
-	},
 } as const satisfies { [s: string]: VoidStaticModelInfo }
 
 
@@ -806,7 +728,7 @@ const openAICompatIncludeInPayloadReasoning = (reasoningInfo: SendableReasoningI
 
 // Mistral reasoning control, sent as a raw body field through the OpenAI-compatible gateway (no Mistral SDK needed).
 // Only mistral-small / mistral-medium carry the effort slider, so reasoning_effort ('none' | 'high') is emitted
-// for them alone. magistral (native reasoning) and the non-reasoning models produce no slider value → nothing is
+// for them alone. The non-reasoning models produce no slider value → nothing is
 // sent, which avoids the "reasoning_effort is not enabled for this model" 400 those models return.
 const mistralIncludeInPayloadReasoning = (reasoningInfo: SendableReasoningInfo) => {
 	if (reasoningInfo?.type === 'effort_slider_value') {
@@ -827,18 +749,6 @@ const openAISettings: VoidStaticProviderInfo = {
 			else if (lower.includes('mini')) fallbackName = 'gpt-5.4-mini'
 			else fallbackName = 'gpt-5.4'
 		}
-		else if (lower.includes('o4') && lower.includes('mini')) fallbackName = 'o4-mini'
-		else if (lower.includes('o3') && lower.includes('mini')) fallbackName = 'o4-mini'
-		else if (lower.includes('o3')) fallbackName = 'o3'
-		else if (lower.includes('o1') && lower.includes('mini')) fallbackName = 'o4-mini'
-		else if (lower.includes('o1')) fallbackName = 'o3'
-		else if (lower.includes('gpt-4.1') || lower.includes('gpt4.1')) {
-			if (lower.includes('nano')) fallbackName = 'gpt-4.1-nano'
-			else if (lower.includes('mini')) fallbackName = 'gpt-4.1-mini'
-			else fallbackName = 'gpt-4.1'
-		}
-		else if (lower.includes('4o') && lower.includes('mini')) fallbackName = 'gpt-4.1-mini'
-		else if (lower.includes('4o') || lower.includes('gpt-4o')) fallbackName = 'gpt-4.1'
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...openAIModelOptions[fallbackName] }
 		return null
 	},
@@ -1049,27 +959,7 @@ const geminiSettings: VoidStaticProviderInfo = {
 
 // ---------------- DEEPSEEK API ----------------
 const deepseekModelOptions = {
-	'deepseek-chat': { // deepseek-v4-flash, non-thinking — https://api-docs.deepseek.com/quick_start/pricing
-		...openSourceModelOptions_assumingOAICompat.deepseekCoderV3,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'system-role',
-		contextWindow: 1_000_000,
-		reservedOutputTokenSpace: 384_000,
-		cost: { cache_read: 0.0028, input: 0.14, output: 0.28 },
-		downloadable: false,
-		supportsFIM: true,
-	},
-	'deepseek-reasoner': { // deepseek-v4-flash, thinking mode
-		...openSourceModelOptions_assumingOAICompat.deepseekR1,
-		specialToolFormat: 'openai-style',
-		supportsSystemMessage: 'system-role',
-		contextWindow: 1_000_000,
-		reservedOutputTokenSpace: 384_000,
-		cost: { cache_read: 0.0028, input: 0.14, output: 0.28 },
-		downloadable: false,
-		supportsFIM: false,
-	},
-	'deepseek-v4-flash': { // recommended — thinking + non-thinking modes (supersedes deepseek-chat / deepseek-reasoner) — https://api-docs.deepseek.com/quick_start/pricing
+	'deepseek-v4-flash': { // recommended — thinking + non-thinking modes — https://api-docs.deepseek.com/quick_start/pricing
 		contextWindow: 1_000_000,
 		reservedOutputTokenSpace: 384_000,
 		cost: { cache_read: 0.0028, input: 0.14, output: 0.28 },
@@ -1099,8 +989,6 @@ const deepseekSettings: VoidStaticProviderInfo = {
 		let fallbackName: keyof typeof deepseekModelOptions | null = null
 		if (lower.includes('v4-pro') || lower.includes('v4_pro')) fallbackName = 'deepseek-v4-pro'
 		else if (lower.includes('v4-flash') || lower.includes('v4_flash')) fallbackName = 'deepseek-v4-flash'
-		else if (lower.includes('reasoner')) fallbackName = 'deepseek-reasoner'
-		else if (lower.includes('chat')) fallbackName = 'deepseek-chat'
 		else if (lower.includes('r1') || lower.includes('v4') || lower.includes('deepseek')) fallbackName = 'deepseek-v4-flash'
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...deepseekModelOptions[fallbackName] }
 		return null
@@ -1119,7 +1007,6 @@ const deepseekSettings: VoidStaticProviderInfo = {
 // mistral-small (Small 4) and mistral-medium (Medium 3.5) support adjustable reasoning via the native
 // `reasoning_effort` param, which on these models only accepts 'none' (minimal, no thinking chunk) or 'high'
 // (full thinking) — the other SDK enum values (minimal/low/medium/xhigh) 400 with "not enabled for this model".
-// magistral does NOT use this (it reasons natively and rejects reasoning_effort).
 const mistralReasoningEffortCapabilities = {
 	supportsReasoning: true as const,
 	canIOReasoning: true,
@@ -1169,7 +1056,7 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
-	'devstral-latest': { // Devstral 2 — https://docs.mistral.ai/models/model-cards/devstral-2-25-12
+	'devstral-medium-latest': { // Devstral 2 — https://docs.mistral.ai/models/model-cards/devstral-2-25-12
 		contextWindow: 256_000,
 		reservedOutputTokenSpace: 8_192,
 		cost: { input: 0.40, output: 2.00 },
@@ -1178,16 +1065,6 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		downloadable: { sizeGb: 'not-known' },
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
-	},
-	'magistral-medium-latest': { // Magistral Medium 1.2 — https://docs.mistral.ai/models/model-cards/magistral-medium-1-2-25-09
-		contextWindow: 128_000,
-		reservedOutputTokenSpace: 8_192,
-		cost: { input: 2.00, output: 5.00 },
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		downloadable: { sizeGb: 'not-known' },
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] }, // native reasoning — rejects reasoning_effort
 	},
 	'ministral-14b-latest': { // Ministral 3 14B — https://docs.mistral.ai/models/model-cards/ministral-3-14b-25-12
 		contextWindow: 256_000,
@@ -1219,47 +1096,6 @@ const mistralModelOptions = { // https://docs.mistral.ai/getting-started/models/
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
-	// --- open-weight models (Apache 2.0) ---
-	'open-mistral-nemo': { // Mistral NeMo 12B — https://docs.mistral.ai/models/model-cards/mistral-nemo
-		contextWindow: 128_000,
-		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.15, output: 0.15 },
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		downloadable: { sizeGb: 12 },
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: false,
-	},
-	'open-codestral-mamba-2407': { // Codestral Mamba 7B — https://docs.mistral.ai/models/model-cards/codestral-mamba
-		contextWindow: 256_000,
-		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.15, output: 0.15 },
-		supportsFIM: true,
-		specialToolFormat: 'openai-style',
-		downloadable: { sizeGb: 7 },
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: false,
-	},
-	'open-mixtral-8x22b': { // Mixtral 8x22B — https://docs.mistral.ai/models/model-cards/mixtral-8x22b
-		contextWindow: 64_000,
-		reservedOutputTokenSpace: 8_192,
-		cost: { input: 2.00, output: 6.00 },
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		downloadable: { sizeGb: 87 },
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: false,
-	},
-	'open-mixtral-8x7b': { // Mixtral 8x7B — https://docs.mistral.ai/models/model-cards/mixtral-8x7b
-		contextWindow: 32_000,
-		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.70, output: 0.70 },
-		supportsFIM: false,
-		specialToolFormat: 'openai-style',
-		downloadable: { sizeGb: 47 },
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: false,
-	},
 } as const satisfies { [s: string]: VoidStaticModelInfo }
 
 const mistralSettings: VoidStaticProviderInfo = {
@@ -1267,12 +1103,8 @@ const mistralSettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof mistralModelOptions | null = null
-		if (lower.includes('nemo')) fallbackName = 'open-mistral-nemo'
-		else if (lower.includes('mamba')) fallbackName = 'open-codestral-mamba-2407'
-		else if (lower.includes('mixtral')) fallbackName = lower.includes('8x7') ? 'open-mixtral-8x7b' : 'open-mixtral-8x22b'
-		else if (lower.includes('codestral')) fallbackName = 'codestral-latest'
-		else if (lower.includes('magistral')) fallbackName = lower.includes('small') ? 'mistral-small-latest' : 'magistral-medium-latest'
-		else if (lower.includes('devstral')) fallbackName = 'devstral-latest'
+		if (lower.includes('codestral')) fallbackName = 'codestral-latest'
+		else if (lower.includes('devstral')) fallbackName = 'devstral-medium-latest'
 		else if (lower.includes('ministral')) {
 			if (lower.includes('14')) fallbackName = 'ministral-14b-latest'
 			else if (lower.includes('8')) fallbackName = 'ministral-8b-latest'
@@ -1341,24 +1173,6 @@ const groqModelOptions = { // https://console.groq.com/docs/models, https://groq
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: true, canIOReasoning: true, openSourceThinkTags: ['<think>', '</think>'] },
 	},
-	'qwen-2.5-coder-32b': {
-		contextWindow: 128_000,
-		reservedOutputTokenSpace: null, // not specified?
-		cost: { input: 0.79, output: 0.79 },
-		downloadable: false,
-		supportsFIM: false, // unfortunately looks like no FIM support on groq
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: false,
-	},
-	'qwen-qwq-32b': { // https://huggingface.co/Qwen/QwQ-32B
-		contextWindow: 128_000,
-		reservedOutputTokenSpace: null, // not specified?
-		cost: { input: 0.29, output: 0.39 },
-		downloadable: false,
-		supportsFIM: false,
-		supportsSystemMessage: 'system-role',
-		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] }, // we're using reasoning_format:parsed so really don't need to know openSourceThinkTags
-	},
 	'groq/compound': { // agentic system w/ built-in web search + code execution — https://console.groq.com/docs/compound — cost varies by underlying model usage
 		contextWindow: 131_072,
 		reservedOutputTokenSpace: 32_768,
@@ -1392,8 +1206,6 @@ const groqSettings: VoidStaticProviderInfo = {
 		else if (lower.includes('qwen3') || lower.includes('qwen-3')) fallbackName = 'qwen/qwen3-32b'
 		else if (lower.includes('llama-3.3') || lower.includes('llama3.3')) fallbackName = 'llama-3.3-70b-versatile'
 		else if (lower.includes('llama-3.1') || lower.includes('llama3.1')) fallbackName = 'llama-3.1-8b-instant'
-		else if (lower.includes('qwen') && lower.includes('coder')) fallbackName = 'qwen-2.5-coder-32b'
-		else if (lower.includes('qwq')) fallbackName = 'qwen-qwq-32b'
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...groqModelOptions[fallbackName] }
 		return null
 	},
@@ -1621,6 +1433,12 @@ const liteLLMSettings: VoidStaticProviderInfo = { // https://docs.litellm.ai/doc
 
 // ---------------- OPENROUTER ----------------
 const openRouterModelOptions_assumingOpenAICompat = {
+	'anthropic/claude-fable-5': {
+		...anthropicModelOptions['claude-fable-5'],
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		downloadable: false,
+	},
 	'anthropic/claude-opus-4.8': {
 		...anthropicModelOptions['claude-opus-4-8'],
 		supportsSystemMessage: 'system-role',
@@ -1666,7 +1484,7 @@ const openRouterModelOptions_assumingOpenAICompat = {
 		downloadable: false,
 	},
 	'mistralai/devstral-2512': {
-		...mistralModelOptions['devstral-latest'],
+		...mistralModelOptions['devstral-medium-latest'],
 		downloadable: false,
 	},
 	'qwen/qwen3-235b-a22b': {
