@@ -22,6 +22,7 @@ import { ChatMode, displayInfoOfProviderName, FeatureName, isFeatureNameDisabled
 import { ICommandService } from '../../../../../../../platform/commands/common/commands.js';
 import { WarningBox } from '../void-settings-tsx/WarningBox.js';
 import { getModelCapabilities, getIsReasoningEnabledState } from '../../../../common/modelCapabilities.js';
+import { estimateTokens } from '../../../../common/tokenizer.js';
 import { AlertTriangle, File, Ban, Check, ChevronRight, Dot, FileIcon, Pencil, Undo, Undo2, X, Flag, Copy as CopyIcon, Info, CirclePlus, Ellipsis, CircleEllipsis, Folder, ALargeSmall, TypeOutline, Text } from 'lucide-react';
 import { ChatMessage, CheckpointEntry, StagingSelectionItem, ToolMessage } from '../../../../common/chatThreadServiceTypes.js';
 import { approvalTypeOfBuiltinToolName, BuiltinToolCallParams, BuiltinToolName, ToolName, LintErrorItem, ToolApprovalType, toolApprovalTypes } from '../../../../common/toolsServiceTypes.js';
@@ -293,6 +294,12 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 
 
 
+const formatTokenCount = (n: number): string => {
+	if (n < 1000) return `${n}`
+	if (n < 10_000) return `${(n / 1000).toFixed(1)}k`
+	return `${Math.round(n / 1000)}k`
+}
+
 interface VoidChatAreaProps {
 	// Required
 	children: React.ReactNode; // This will be the input component
@@ -321,6 +328,10 @@ interface VoidChatAreaProps {
 	onClose?: () => void;
 
 	featureName: FeatureName;
+
+	// Live token estimate for the current draft (omit to hide the counter)
+	tokenCount?: number;
+	contextWindow?: number;
 }
 
 export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
@@ -340,6 +351,8 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 	setSelections,
 	featureName,
 	loadingIcon,
+	tokenCount,
+	contextWindow,
 }) => {
 	return (
 		<div
@@ -397,18 +410,27 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 					</div>
 				)}
 
-				<div className="flex items-center gap-2">
+				<div className="flex flex-col items-end gap-y-1">
 
-					{isStreaming && loadingIcon}
-
-					{isStreaming ? (
-						<ButtonStop onClick={onAbort} />
-					) : (
-						<ButtonSubmit
-							onClick={onSubmit}
-							disabled={isDisabled}
-						/>
+					{tokenCount !== undefined && tokenCount > 0 && (
+						<span className='text-void-fg-3 text-[10px] leading-none select-none pointer-events-none'>
+							{contextWindow ? `${formatTokenCount(tokenCount)} / ${formatTokenCount(contextWindow)}` : `${formatTokenCount(tokenCount)} tokens`}
+						</span>
 					)}
+
+					<div className="flex items-center gap-2">
+
+						{isStreaming && loadingIcon}
+
+						{isStreaming ? (
+							<ButtonStop onClick={onAbort} />
+						) : (
+							<ButtonSubmit
+								onClick={onSubmit}
+								disabled={isDisabled}
+							/>
+						)}
+					</div>
 				</div>
 
 			</div>
@@ -2916,8 +2938,14 @@ export const SidebarChat = () => {
 	// state of current message
 	const initVal = ''
 	const [instructionsAreEmpty, setInstructionsAreEmpty] = useState(!initVal)
+	const [tokenEstimate, setTokenEstimate] = useState(0)
 
 	const isDisabled = instructionsAreEmpty || !!isFeatureNameDisabled('Chat', settingsState)
+
+	const chatModelSelection = settingsState.modelSelectionOfFeature['Chat']
+	const chatContextWindow = chatModelSelection
+		? getModelCapabilities(chatModelSelection.providerName, chatModelSelection.modelName, settingsState.overridesOfModel).contextWindow
+		: undefined
 
 	const sidebarRef = useRef<HTMLDivElement>(null)
 	const scrollContainerRef = useRef<HTMLDivElement | null>(null)
@@ -3058,7 +3086,8 @@ export const SidebarChat = () => {
 
 	const onChangeText = useCallback((newStr: string) => {
 		setInstructionsAreEmpty(!newStr)
-	}, [setInstructionsAreEmpty])
+		setTokenEstimate(estimateTokens(newStr))
+	}, [setInstructionsAreEmpty, setTokenEstimate])
 	const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
 			onSubmit()
@@ -3078,6 +3107,8 @@ export const SidebarChat = () => {
 		selections={selections}
 		setSelections={setSelections}
 		onClickAnywhere={() => { textAreaRef.current?.focus() }}
+		tokenCount={tokenEstimate}
+		contextWindow={chatContextWindow}
 	>
 		<VoidInputBox2
 			enableAtToMention

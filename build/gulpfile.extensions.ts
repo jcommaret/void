@@ -125,7 +125,10 @@ const tasks = compilations.map(function (tsconfigFile) {
 
 	const srcRoot = path.dirname(tsconfigFile);
 	const srcBase = path.join(srcRoot, 'src');
-	const src = path.join(srcBase, '**');
+	// terminal-suggest ships a relative symlink test fixture (fixtures/symlink-test/symlink-executable.sh
+	// -> real-executable.sh); vinyl-fs 4's findSymlinkHardpath lstats the raw readlink target against
+	// process cwd instead of the link's own dir, which ENOENTs since there's no such file at the repo root.
+	const src = [path.join(srcBase, '**'), '!' + path.join(srcBase, '**/fixtures/symlink-test/**')];
 	const srcOpts = { cwd: root, base: srcBase, dot: true };
 
 	const out = path.join(srcRoot, 'out');
@@ -202,7 +205,10 @@ const tasks = compilations.map(function (tsconfigFile) {
 	const watchTask = task.define(`watch-extension:${name}`, task.series(cleanTask, () => {
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts'], { dot: true }));
 		const watchInput = watcher(src, { ...srcOpts, ...{ readDelay: 200 } });
-		const watchNonTs = watchInput.pipe(filter(['**', '!**/*.ts'], { dot: true })).pipe(gulp.dest(out));
+		// gulp 5's dest() is streamx-based: piping it unconditionally calls dest.end(), which
+		// es.merge's bare merge stream doesn't provide. Interpose a classic through stream (same
+		// fix as esSrc() in gulpfile.vscode.ts/gulpfile.reh.ts) so these can be merged safely.
+		const watchNonTs = watchInput.pipe(filter(['**', '!**/*.ts'], { dot: true })).pipe(gulp.dest(out)).pipe(es.through());
 		const tsgoStream = watchInput.pipe(util.debounce(() => {
 			onExtensionCompilationStart();
 			const stream = createTsgoStream(absolutePath, { taskName: 'extensions' }, () => rewriteTsgoSourceMappingUrlsIfNeeded(false, out, baseUrl));
@@ -222,7 +228,7 @@ const tasks = compilations.map(function (tsconfigFile) {
 			});
 			return result;
 		}, 200));
-		const watchStream = es.merge(nonts.pipe(gulp.dest(out)), watchNonTs, tsgoStream);
+		const watchStream = es.merge(nonts.pipe(gulp.dest(out)).pipe(es.through()), watchNonTs, tsgoStream);
 
 		return watchStream;
 	}));

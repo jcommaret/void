@@ -7,6 +7,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ChatMessage } from '../common/chatThreadServiceTypes.js';
 import { getIsReasoningEnabledState, getReservedOutputTokenSpace, getModelCapabilities } from '../common/modelCapabilities.js';
+import { estimateTokens } from '../common/tokenizer.js';
 import { reParsedToolXMLString, chat_systemMessage } from '../common/prompt/prompts.js';
 import { AnthropicLLMChatMessage, AnthropicReasoning, GeminiLLMChatMessage, LLMChatMessage, LLMFIMMessage, OpenAILLMChatMessage, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
@@ -40,7 +41,6 @@ type SimpleLLMMessage = {
 
 
 
-const CHARS_PER_TOKEN = 4 // assume abysmal chars per token
 const TRIM_TO_LEN = 120
 
 
@@ -295,7 +295,7 @@ const prepareOpenAIOrAnthropicMessages = ({
 	// the higher the weight, the higher the desire to truncate - TRIM HIGHEST WEIGHT MESSAGES
 	const alreadyTrimmedIdxes = new Set<number>()
 	const weight = (message: MesType, messages: MesType[], idx: number) => {
-		const base = message.content.length
+		const base = estimateTokens(message.content)
 
 		let multiplier: number
 		multiplier = 1 + (messages.length - 1 - idx) / messages.length // slow rampdown from 2 to 1 as index increases
@@ -334,11 +334,11 @@ const prepareOpenAIOrAnthropicMessages = ({
 		return largestIndex
 	}
 
-	let totalLen = 0
-	for (const m of messages) { totalLen += m.content.length }
-	const charsNeedToTrim = totalLen - Math.max(
-		(contextWindow - reservedOutputTokenSpace) * CHARS_PER_TOKEN, // can be 0, in which case charsNeedToTrim=everything, bad
-		5_000 // ensure we don't trim at least 5k chars (just a random small value)
+	let totalTokens = 0
+	for (const m of messages) { totalTokens += estimateTokens(m.content) }
+	const tokensNeedToTrim = totalTokens - Math.max(
+		contextWindow - reservedOutputTokenSpace, // can be 0, in which case tokensNeedToTrim=everything, bad
+		1_250 // ensure we don't trim below this floor (just a random small value)
 	)
 
 
@@ -346,27 +346,35 @@ const prepareOpenAIOrAnthropicMessages = ({
 	// 0                      |    |             |
 	//                        |    contextWindow |
 	//                     contextWindow - maxOut|putTokens
-	//                                          totalLen
-	let remainingCharsToTrim = charsNeedToTrim
+	//                                    totalTokens
+	let remainingTokensToTrim = tokensNeedToTrim
 	let i = 0
 
-	while (remainingCharsToTrim > 0) {
+	while (remainingTokensToTrim > 0) {
 		i += 1
 		if (i > 100) break
 
 		const trimIdx = _findLargestByWeight(messages)
 		const m = messages[trimIdx]
+		const msgTokens = estimateTokens(m.content)
 
 		// if can finish here, do
-		const numCharsWillTrim = m.content.length - TRIM_TO_LEN
-		if (numCharsWillTrim > remainingCharsToTrim) {
-			// trim remainingCharsToTrim + '...'.length chars
-			m.content = m.content.slice(0, m.content.length - remainingCharsToTrim - '...'.length).trim() + '...'
+		const fullyTrimmedContent = m.content.length > TRIM_TO_LEN
+			? m.content.substring(0, TRIM_TO_LEN - '...'.length) + '...'
+			: m.content
+		const numTokensWillTrim = msgTokens - estimateTokens(fullyTrimmedContent)
+		if (numTokensWillTrim > remainingTokensToTrim) {
+			// don't need to trim this message all the way down — cut a proportional number of
+			// characters based on this message's own token density (code is denser than prose)
+			const charsPerToken = msgTokens > 0 ? m.content.length / msgTokens : 1
+			const charsToRemove = Math.ceil(remainingTokensToTrim * charsPerToken)
+			const targetLen = Math.max(m.content.length - charsToRemove - '...'.length, 0)
+			m.content = m.content.slice(0, targetLen).trim() + '...'
 			break
 		}
 
-		remainingCharsToTrim -= numCharsWillTrim
-		m.content = m.content.substring(0, TRIM_TO_LEN - '...'.length) + '...'
+		remainingTokensToTrim -= numTokensWillTrim
+		m.content = fullyTrimmedContent
 		alreadyTrimmedIdxes.add(trimIdx)
 	}
 
