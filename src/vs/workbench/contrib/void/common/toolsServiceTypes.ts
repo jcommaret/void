@@ -23,6 +23,7 @@ export const approvalTypeOfBuiltinToolName: Partial<{ [T in BuiltinToolName]?: '
 	'delete_file_or_folder': 'edits',
 	'rewrite_file': 'edits',
 	'edit_file': 'edits',
+	'write_project_memory': 'edits',
 	'run_command': 'terminal',
 	'run_persistent_command': 'terminal',
 	'open_persistent_terminal': 'terminal',
@@ -50,8 +51,10 @@ export type BuiltinToolCallParams = {
 	'search_for_files': { query: string, isRegex: boolean, searchInFolder: URI | null, pageNumber: number },
 	'search_in_file': { uri: URI, query: string, isRegex: boolean },
 	'read_lint_errors': { uri: URI },
+	'read_project_memory': {},
 	// ---
 	'rewrite_file': { uri: URI, newContent: string },
+	'write_project_memory': { content: string, mode: 'append' | 'replace' },
 	'edit_file': { uri: URI, searchReplaceBlocks: string },
 	'create_file_or_folder': { uri: URI, isFolder: boolean },
 	'delete_file_or_folder': { uri: URI, isRecursive: boolean, isFolder: boolean },
@@ -71,9 +74,11 @@ export type BuiltinToolResultType = {
 	'search_for_files': { uris: URI[], hasNextPage: boolean },
 	'search_in_file': { lines: number[]; },
 	'read_lint_errors': { lintErrors: LintErrorItem[] | null },
+	'read_project_memory': { content: string },
 	// ---
 	'rewrite_file': Promise<{ lintErrors: LintErrorItem[] | null }>,
 	'edit_file': Promise<{ lintErrors: LintErrorItem[] | null }>,
+	'write_project_memory': { content: string, tokenCount: number },
 	'create_file_or_folder': {},
 	'delete_file_or_folder': {},
 	// ---

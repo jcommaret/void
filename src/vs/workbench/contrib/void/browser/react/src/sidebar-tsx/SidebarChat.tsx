@@ -1446,6 +1446,8 @@ const titleOfBuiltinToolName = {
 
 	'read_lint_errors': { done: `Read lint errors`, proposed: 'Read lint errors', running: loadingTitleWrapper('Reading lint errors') },
 	'search_in_file': { done: 'Searched in file', proposed: 'Search in file', running: loadingTitleWrapper('Searching in file') },
+	'read_project_memory': { done: 'Read project memory', proposed: 'Read project memory', running: loadingTitleWrapper('Reading project memory') },
+	'write_project_memory': { done: 'Saved project memory', proposed: 'Save project memory', running: loadingTitleWrapper('Saving project memory') },
 } as const satisfies Record<BuiltinToolName, { done: any, proposed: any, running: any }>
 
 
@@ -1585,6 +1587,13 @@ const toolNameToDesc = (toolName: BuiltinToolName, _toolParams: BuiltinToolCallP
 				desc1: getBasename(toolParams.uri.fsPath),
 				desc1Info: getRelative(toolParams.uri, accessor),
 			}
+		},
+		'read_project_memory': () => {
+			return { desc1: '' }
+		},
+		'write_project_memory': () => {
+			const toolParams = _toolParams as BuiltinToolCallParams['write_project_memory']
+			return { desc1: toolParams.mode === 'replace' ? 'Replacing memory' : 'Appending to memory' }
 		}
 	}
 
@@ -2458,6 +2467,74 @@ const builtinToolNameToComponent: { [T in BuiltinToolName]: { resultWrapper: Res
 				const { persistentTerminalId } = params
 				componentParams.desc1 = persistentTerminalNameOfId(persistentTerminalId)
 				componentParams.onClick = () => terminalToolsService.focusPersistentTerminal(persistentTerminalId)
+			}
+			else if (toolMessage.type === 'tool_error') {
+				const { result } = toolMessage
+				componentParams.bottomChildren = <BottomChildren title='Error'>
+					<CodeChildren>
+						{result}
+					</CodeChildren>
+				</BottomChildren>
+			}
+
+			return <ToolHeaderWrapper {...componentParams} />
+		},
+	},
+
+	'read_project_memory': {
+		resultWrapper: ({ toolMessage }) => {
+			const accessor = useAccessor()
+			const { desc1, desc1Info } = toolNameToDesc(toolMessage.name, toolMessage.params, accessor)
+			const title = getTitle(toolMessage)
+			const icon = null
+
+			if (toolMessage.type === 'tool_request') return null // do not show past requests
+			if (toolMessage.type === 'running_now') return null // do not show running
+
+			const isError = false
+			const isRejected = toolMessage.type === 'rejected'
+			const componentParams: ToolHeaderParams = { title, desc1, desc1Info, isError, icon, isRejected, }
+
+			if (toolMessage.type === 'success') {
+				const { result } = toolMessage
+				componentParams.children = result.content
+					? <ToolChildrenWrapper>
+						<CodeChildren className='bg-void-bg-3'>
+							<pre className='font-mono whitespace-pre-wrap'>{result.content}</pre>
+						</CodeChildren>
+					</ToolChildrenWrapper>
+					: `No project memory stored yet.`
+			}
+			else if (toolMessage.type === 'tool_error') {
+				const { result } = toolMessage
+				componentParams.bottomChildren = <BottomChildren title='Error'>
+					<CodeChildren>
+						{result}
+					</CodeChildren>
+				</BottomChildren>
+			}
+
+			return <ToolHeaderWrapper {...componentParams} />
+		},
+	},
+
+	'write_project_memory': {
+		resultWrapper: ({ toolMessage }) => {
+			const accessor = useAccessor()
+			const { desc1, desc1Info } = toolNameToDesc(toolMessage.name, toolMessage.params, accessor)
+			const title = getTitle(toolMessage)
+			const icon = null
+
+			if (toolMessage.type === 'tool_request') return null // do not show past requests
+			if (toolMessage.type === 'running_now') return null // do not show running
+
+			const isError = false
+			const isRejected = toolMessage.type === 'rejected'
+			const componentParams: ToolHeaderParams = { title, desc1, desc1Info, isError, icon, isRejected, }
+
+			if (toolMessage.type === 'success') {
+				const { result } = toolMessage
+				componentParams.info = `${result.tokenCount} tokens`
 			}
 			else if (toolMessage.type === 'tool_error') {
 				const { result } = toolMessage

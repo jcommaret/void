@@ -30,6 +30,9 @@ export const MAX_TERMINAL_CHARS = 100_000
 export const MAX_TERMINAL_INACTIVE_TIME = 8 // seconds
 export const MAX_TERMINAL_BG_COMMAND_TIME = 5
 
+// project memory tool info
+export const MAX_PROJECT_MEMORY_TOKENS = 2_000
+
 
 // Maximum character limits for prefix and suffix context
 export const MAX_PREFIX_SUFFIX_CHARS = 20_000
@@ -267,6 +270,12 @@ export const builtinTools: {
 		},
 	},
 
+	read_project_memory: {
+		name: 'read_project_memory',
+		description: `Returns durable notes you've previously saved about this project (architecture, conventions, past decisions, gotchas) via write_project_memory. Empty if nothing has been saved yet.`,
+		params: {},
+	},
+
 	// --- editing (create/delete) ---
 
 	create_file_or_folder: {
@@ -303,6 +312,16 @@ export const builtinTools: {
 			new_content: { description: `The new contents of the file. Must be a string.` }
 		},
 	},
+
+	write_project_memory: {
+		name: 'write_project_memory',
+		description: `Saves a durable note about this project that will persist across sessions and be readable via read_project_memory next time. Use this for things worth remembering long-term: architecture decisions, conventions, gotchas. Never save secrets, credentials, or other sensitive information. Capped at ~${MAX_PROJECT_MEMORY_TOKENS} tokens; oldest content is trimmed automatically once the cap is exceeded.`,
+		params: {
+			content: { description: `The note to save.` },
+			mode: { description: `Optional. "append" (default) adds to existing memory; "replace" overwrites it entirely.` },
+		},
+	},
+
 	run_command: {
 		name: 'run_command',
 		description: `Runs a terminal command and waits for the result (times out after ${MAX_TERMINAL_INACTIVE_TIME}s of inactivity). ${terminalDescHelper}`,

@@ -21,3 +21,5 @@ export const THREAD_STORAGE_KEY = 'void.chatThreadStorageII'
 
 
 export const OPT_OUT_KEY = 'void.app.optOutAll'
+
+export const PROJECT_MEMORY_STORAGE_KEY = 'void.projectMemory.v1'

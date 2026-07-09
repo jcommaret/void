@@ -19,6 +19,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { ToolName } from '../common/toolsServiceTypes.js';
 import { IMCPService } from '../common/mcpService.js';
+import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
+import { PROJECT_MEMORY_STORAGE_KEY } from '../common/storageKeys.js';
 
 export const EMPTY_MESSAGE = '(empty message)'
 
@@ -279,7 +281,7 @@ const prepareOpenAIOrAnthropicMessages = ({
 	// A COMPLETE HACK: last message is system message for context purposes
 
 	const sysMsgParts: string[] = []
-	if (aiInstructions) sysMsgParts.push(`GUIDELINES (from the user's .voidrules file):\n${aiInstructions}`)
+	if (aiInstructions) sysMsgParts.push(`GUIDELINES AND MEMORY (from the user's settings, .voidrules file, and project memory):\n${aiInstructions}`)
 	if (systemMessage) sysMsgParts.push(systemMessage)
 	const combinedSystemMessage = sysMsgParts.join('\n\n')
 
@@ -557,6 +559,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
 		@IVoidModelService private readonly voidModelService: IVoidModelService,
 		@IMCPService private readonly mcpService: IMCPService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super()
 	}
@@ -579,13 +582,20 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		}
 	}
 
-	// Get combined AI instructions from settings and .voidrules files
+	// Notes saved by the agent itself (via write_project_memory) in previous sessions, scoped to this workspace
+	private _getProjectMemory(): string {
+		return this.storageService.get(PROJECT_MEMORY_STORAGE_KEY, StorageScope.WORKSPACE) ?? ''
+	}
+
+	// Get combined AI instructions from settings, .voidrules files, and saved project memory
 	private _getCombinedAIInstructions(): string {
 		const globalAIInstructions = this.voidSettingsService.state.globalSettings.aiInstructions;
 		const voidRulesFileContent = this._getVoidRulesFileContents();
+		const projectMemory = this._getProjectMemory();
 
 		const ans: string[] = []
 		if (globalAIInstructions) ans.push(globalAIInstructions)
+		if (projectMemory) ans.push(`PROJECT MEMORY (notes saved automatically in previous sessions via write_project_memory):\n${projectMemory}`)
 		if (voidRulesFileContent) ans.push(voidRulesFileContent)
 		return ans.join('\n\n')
 	}

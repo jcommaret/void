@@ -16,9 +16,12 @@ import { computeDirectoryTree1Deep, IDirectoryStrService, stringifyDirectoryTree
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js'
 import { timeout } from '../../../../base/common/async.js'
 import { RawToolParamsObj } from '../common/sendLLMMessageTypes.js'
-import { MAX_CHILDREN_URIs_PAGE, MAX_FILE_CHARS_PAGE, MAX_TERMINAL_BG_COMMAND_TIME, MAX_TERMINAL_INACTIVE_TIME } from '../common/prompt/prompts.js'
+import { MAX_CHILDREN_URIs_PAGE, MAX_FILE_CHARS_PAGE, MAX_PROJECT_MEMORY_TOKENS, MAX_TERMINAL_BG_COMMAND_TIME, MAX_TERMINAL_INACTIVE_TIME } from '../common/prompt/prompts.js'
 import { IVoidSettingsService } from '../common/voidSettingsService.js'
 import { generateUuid } from '../../../../base/common/uuid.js'
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js'
+import { PROJECT_MEMORY_STORAGE_KEY } from '../common/storageKeys.js'
+import { estimateTokens } from '../common/tokenizer.js'
 
 
 // tool use for AI
@@ -153,6 +156,7 @@ export class ToolsService implements IToolsService {
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
 		@IMarkerService private readonly markerService: IMarkerService,
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		const queryBuilder = instantiationService.createInstance(QueryBuilder);
 
@@ -230,6 +234,10 @@ export class ToolsService implements IToolsService {
 				return { uri }
 			},
 
+			read_project_memory: (params: RawToolParamsObj) => {
+				return {}
+			},
+
 			// ---
 
 			create_file_or_folder: (params: RawToolParamsObj) => {
@@ -261,6 +269,13 @@ export class ToolsService implements IToolsService {
 				const uri = validateURI(uriStr)
 				const searchReplaceBlocks = validateStr('searchReplaceBlocks', searchReplaceBlocksUnknown)
 				return { uri, searchReplaceBlocks }
+			},
+
+			write_project_memory: (params: RawToolParamsObj) => {
+				const { content: contentUnknown, mode: modeUnknown } = params
+				const content = validateStr('content', contentUnknown)
+				const mode = modeUnknown === 'replace' ? 'replace' as const : 'append' as const
+				return { content, mode }
 			},
 
 			// ---
@@ -394,6 +409,11 @@ export class ToolsService implements IToolsService {
 				return { result: { lintErrors } }
 			},
 
+			read_project_memory: async () => {
+				const content = this._readProjectMemory()
+				return { result: { content } }
+			},
+
 			// ---
 
 			create_file_or_folder: async ({ uri, isFolder }) => {
@@ -442,6 +462,14 @@ export class ToolsService implements IToolsService {
 				})
 
 				return { result: lintErrorsPromise }
+			},
+
+			write_project_memory: async ({ content, mode }) => {
+				const existing = mode === 'append' ? this._readProjectMemory() : ''
+				const combined = existing ? `${existing}\n\n${content}` : content
+				const { content: trimmedContent, tokenCount } = this._trimMemoryToTokenBudget(combined)
+				this._writeProjectMemory(trimmedContent)
+				return { result: { content: trimmedContent, tokenCount } }
 			},
 			// ---
 			run_command: async ({ command, cwd, terminalId }) => {
@@ -505,6 +533,9 @@ export class ToolsService implements IToolsService {
 					stringifyLintErrors(result.lintErrors)
 					: 'No lint errors found.'
 			},
+			read_project_memory: (params, result) => {
+				return result.content || 'No project memory stored yet.'
+			},
 			// ---
 			create_file_or_folder: (params, result) => {
 				return `URI ${params.uri.fsPath} successfully created.`
@@ -529,6 +560,9 @@ export class ToolsService implements IToolsService {
 						: '')
 
 				return `Change successfully made to ${params.uri.fsPath}.${lintErrsString}`
+			},
+			write_project_memory: (params, result) => {
+				return `Project memory saved (${result.tokenCount} tokens).`
 			},
 			run_command: (params, result) => {
 				const { resolveReason, result: result_, } = result
@@ -587,6 +621,30 @@ export class ToolsService implements IToolsService {
 		return { lintErrors, }
 	}
 
+	private _readProjectMemory(): string {
+		return this.storageService.get(PROJECT_MEMORY_STORAGE_KEY, StorageScope.WORKSPACE) ?? ''
+	}
+
+	private _writeProjectMemory(content: string) {
+		this.storageService.store(PROJECT_MEMORY_STORAGE_KEY, content, StorageScope.WORKSPACE, StorageTarget.MACHINE)
+	}
+
+	// keeps the most recent content — trims from the oldest (front) first, proportional to this
+	// text's own token density, then nudges until it actually fits (BPE density isn't perfectly uniform)
+	private _trimMemoryToTokenBudget(content: string): { content: string, tokenCount: number } {
+		const tokenCount = estimateTokens(content)
+		if (tokenCount <= MAX_PROJECT_MEMORY_TOKENS) return { content, tokenCount }
+
+		const charsPerToken = content.length / tokenCount
+		const excessTokens = tokenCount - MAX_PROJECT_MEMORY_TOKENS
+		const charsToRemove = Math.ceil(excessTokens * charsPerToken)
+		let trimmed = content.slice(charsToRemove).trim()
+
+		while (trimmed.length > 0 && estimateTokens(trimmed) > MAX_PROJECT_MEMORY_TOKENS) {
+			trimmed = trimmed.slice(Math.ceil(trimmed.length * 0.05)).trim()
+		}
+		return { content: trimmed, tokenCount: estimateTokens(trimmed) }
+	}
 
 }
 
