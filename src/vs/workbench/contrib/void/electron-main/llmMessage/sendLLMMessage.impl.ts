@@ -20,6 +20,7 @@ import { getSendableReasoningInfo, getModelCapabilities, getProviderCapabilities
 import { extractReasoningWrapper, extractXMLToolsWrapper } from './extractGrammar.js';
 import { availableTools, InternalToolInfo } from '../../common/prompt/prompts.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { estimateTokens } from '../../common/tokenizer.js';
 
 const getGoogleApiKey = async () => {
 	// module‑level singleton
@@ -55,6 +56,21 @@ export type ListParams_Internal<ModelResponse> = ModelListParams<ModelResponse>
 
 
 const invalidApiKeyMessage = (providerName: ProviderName) => `Invalid ${displayInfoOfProviderName(providerName).title} API key.`
+
+/**
+ * `fm serve` lists "pcc" in /v1/models but 503s on it with "PCC inference is not available in this
+ * context" when `fm serve` was spawned detached (setsid) from Kodia's own session — see the spawn
+ * fix in appleFoundationModelsMainService.ts. If this still surfaces after that fix, it's a genuine
+ * Apple-side condition (Apple Intelligence/PCC eligibility, quota, or transient PCC node
+ * availability) rather than something Kodia's request shape controls, so explain instead of showing
+ * the raw JSON error.
+ */
+const applePCCUnavailableMessage = () => `Kodia: Apple's Private Cloud Compute ("pcc" model) rejected this request. If this persists, check Apple Intelligence & Siri in System Settings, or use the "system" (fully on-device) model instead.`
+const isApplePCCUnavailableError = (providerName: ProviderName, error: unknown): boolean =>
+	providerName === 'appleFoundationModels'
+	&& error instanceof OpenAI.APIError
+	&& error.status === 503
+	&& /PCC inference is not available/i.test(error.message ?? '')
 
 /** The OpenAI SDK only reads JSON `error.message`; Mistral often returns FastAPI-shaped `detail`/`message`. Without this remap: "422 status code (no body)". */
 const openAICompatibleErrorMessageFromParsedBody = (parsed: unknown, rawText: string, status: number): string => {
@@ -360,12 +376,65 @@ const parseOpenAICompatibleDeltaContent = (content: unknown): { text: string; re
 }
 
 
+// convertToLLMMessageService (browser side) trims message *content* against contextWindow, but it
+// has no visibility into the tool-call schemas assembled here in the main process. That's invisible
+// slack on any normal-sized context window, but on tiny local models (e.g. Apple's on-device
+// Foundation Model, ~4k tokens total) the tool schemas alone can be a third of the whole budget —
+// so a request that looks correctly trimmed still overflows the real session limit. Only kicks in
+// below SMALL_CONTEXT_WINDOW_THRESHOLD so normal cloud providers pay no extra tokenization cost.
+const SMALL_CONTEXT_WINDOW_THRESHOLD = 16_000
+const _messageContentText = (content: unknown): string => {
+	if (typeof content === 'string') return content
+	if (Array.isArray(content)) return content.map(c => (c && typeof c === 'object' && typeof (c as { text?: unknown }).text === 'string') ? (c as { text: string }).text : '').join('')
+	return ''
+}
+const _trimMessagesForToolBudget = (
+	messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+	tools: unknown,
+	contextWindow: number,
+	reservedOutputTokenSpace: number | null | undefined,
+): OpenAI.Chat.Completions.ChatCompletionMessageParam[] => {
+	if (contextWindow > SMALL_CONTEXT_WINDOW_THRESHOLD || !tools) return messages
+
+	const toolTokens = estimateTokens(JSON.stringify(tools))
+	const outputSpace = Math.max(contextWindow * 1 / 2, reservedOutputTokenSpace ?? 4_096)
+	const budget = Math.max(contextWindow - outputSpace - toolTokens, 1_250)
+
+	const msgs = messages.map(m => ({ ...m }))
+	let overflow = msgs.reduce((sum, m) => sum + estimateTokens(_messageContentText(m.content)), 0) - budget
+
+	let guard = 0
+	while (overflow > 0 && guard < 100) {
+		guard += 1
+		// trim the single largest message, keeping the first and last messages intact (usually the
+		// system/task-setup message and the most recent turn — the ones most worth preserving)
+		let largestIdx = -1
+		let largestTokens = -1
+		for (let i = 1; i < msgs.length - 1; i += 1) {
+			if (typeof msgs[i].content !== 'string') continue // don't touch multimodal content
+			const t = estimateTokens(msgs[i].content as string)
+			if (t > largestTokens) { largestTokens = t; largestIdx = i }
+		}
+		if (largestIdx === -1 || largestTokens <= 0) break
+
+		const m = msgs[largestIdx]
+		const content = m.content as string
+		const charsPerToken = content.length / largestTokens
+		const charsToRemove = Math.ceil(Math.min(overflow, largestTokens) * charsPerToken)
+		const targetLen = Math.max(content.length - charsToRemove - 3, 0)
+		m.content = content.slice(0, targetLen).trim() + '...'
+		overflow -= largestTokens - estimateTokens(m.content as string)
+	}
+	return msgs
+}
+
 const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onError, settingsOfProvider, modelSelectionOptions, modelName: modelName_, _setAborter, providerName, chatMode, separateSystemMessage, overridesOfModel, mcpTools }: SendChatParams_Internal) => {
 	const {
 		modelName,
 		specialToolFormat,
 		reasoningCapabilities,
 		additionalOpenAIPayload,
+		contextWindow,
 	} = getModelCapabilities(providerName, modelName_, overridesOfModel)
 
 	const { providerReasoningIOSettings } = getProviderCapabilities(providerName)
@@ -385,6 +454,11 @@ const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onE
 		{ tools: potentialTools } as const
 		: {}
 
+	const reservedOutputTokenSpace = getReservedOutputTokenSpace(providerName, modelName_, { isReasoningEnabled: !!reasoningInfo?.isReasoningEnabled, overridesOfModel })
+	const preparedMessages = nativeToolsObj.tools
+		? _trimMessagesForToolBudget(messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[], nativeToolsObj.tools, contextWindow, reservedOutputTokenSpace)
+		: messages as any
+
 	// instance
 	const openai: OpenAI = await newOpenAICompatibleSDK({ providerName, settingsOfProvider })
 	if (providerName === 'microsoftAzure') {
@@ -393,7 +467,7 @@ const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onE
 	}
 	const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
 		model: modelName,
-		messages: messages as any,
+		messages: preparedMessages,
 		stream: true,
 		...nativeToolsObj,
 		...reasoningAndExtraPayload,
@@ -474,6 +548,7 @@ const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onE
 		// when error/fail - this catches errors of both .create() and .then(for await)
 		.catch(error => {
 			if (error instanceof OpenAI.APIError && error.status === 401) { onError({ message: invalidApiKeyMessage(providerName), fullError: error }); }
+			else if (isApplePCCUnavailableError(providerName, error)) { onError({ message: applePCCUnavailableMessage(), fullError: error }); }
 			else { onError({ message: error + '', fullError: error }); }
 		})
 }

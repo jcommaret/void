@@ -1370,8 +1370,10 @@ const mlxSettings: VoidStaticProviderInfo = {
 }
 
 const appleFoundationModelCapabilities = {
-	contextWindow: 32_768,
-	reservedOutputTokenSpace: 8_192,
+	// measured empirically against `fm serve` (macOS 27+): requests around ~3900 total tokens (prompt+completion)
+	// succeed, ~4500+ fail with "The session's transcript exceeded the model's context size" — the real window is ~4096.
+	contextWindow: 4_096,
+	reservedOutputTokenSpace: 1_024,
 	cost: { input: 0, output: 0 },
 	downloadable: false as const,
 	supportsFIM: false,

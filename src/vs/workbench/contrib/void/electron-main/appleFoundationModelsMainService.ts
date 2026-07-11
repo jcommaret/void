@@ -150,14 +150,20 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 		}
 		log.push(`Found fm: ${fmPath}`);
 
+		let getCrashInfo: () => string | null = () => null;
 		if (options.startServer) {
-			await this._startFmServer(fmPath, port, log);
+			getCrashInfo = await this._startFmServer(fmPath, port, log);
 		}
 
 		for (let i = 0; i < 45; i++) {
 			if (await this._isServerUp(endpoint)) {
 				log.push(`fm serve ready at ${endpoint}`);
 				return { ok: true, endpoint, action: 'started', log };
+			}
+			const crashInfo = getCrashInfo();
+			if (crashInfo) {
+				log.push(crashInfo);
+				return { ok: false, reason: 'fm-crashed', log, errorMessage: crashInfo };
 			}
 			await sleep(1000);
 		}
@@ -184,20 +190,44 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 		}
 	}
 
-	private async _startFmServer(fmPath: string, port: number, log: string[]): Promise<void> {
+	// returns a getter for the crash message (exit code + captured stdout/stderr) if `fm` has already exited, or null while it's still running
+	private async _startFmServer(fmPath: string, port: number, log: string[]): Promise<() => string | null> {
 		if (this._child && !this._child.killed) {
 			log.push('Kodia fm process already running.');
-			return;
+			return () => null;
 		}
 
+		// NOT detached: `detached: true` calls setsid(2), moving the child to a new session and
+		// severing its lineage from Kodia's own (Terminal/Aqua-rooted) session. Confirmed by testing:
+		// `fm respond --model pcc` succeeds when run from a normal Terminal session, and succeeds when
+		// Kodia talks to an `fm serve` started that way — but fails with "PCC inference is not
+		// available in this context" when Kodia spawns `fm serve` detached. PCC (unlike the on-device
+		// `system` model) apparently checks the caller's session lineage. `unref()` below still lets
+		// Kodia's main process exit without waiting on this child.
 		log.push(`Starting fm: fm serve --port ${port} --host 127.0.0.1…`);
 		const child = spawn(fmPath, ['serve', '--port', String(port), '--host', '127.0.0.1'], {
-			detached: true,
-			stdio: 'ignore',
+			stdio: ['ignore', 'pipe', 'pipe'],
 		});
+
+		const output: string[] = [];
+		let crashInfo: string | null = null;
+		const capture = (chunk: Buffer) => {
+			output.push(chunk.toString());
+			if (output.length > 50) {
+				output.shift();
+			}
+		};
+		child.stdout?.on('data', capture);
+		child.stderr?.on('data', capture);
+		child.on('exit', (code, signal) => {
+			crashInfo = `fm exited (code=${code ?? 'null'}, signal=${signal ?? 'null'}): ${output.join('').trim() || '(no output)'}`;
+		});
+
 		child.unref();
 		this._child = child;
 		this._spawnedByVoid = true;
+
+		return () => crashInfo;
 	}
 
 	async stopServerIfSpawnedByVoid(): Promise<void> {

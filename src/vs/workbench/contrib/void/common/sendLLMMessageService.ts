@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 import { EventLLMMessageOnTextParams, EventLLMMessageOnErrorParams, EventLLMMessageOnFinalMessageParams, ServiceSendLLMMessageParams, MainSendLLMMessageParams, MainLLMMessageAbortParams, ServiceModelListParams, EventModelListOnSuccessParams, EventModelListOnErrorParams, MainModelListParams, OllamaModelResponse, OpenaiCompatibleModelResponse, } from './sendLLMMessageTypes.js';
+import { ModelSelection } from './voidSettingsTypes.js';
 
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
@@ -40,6 +41,9 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 		onError: {} as { [eventId: string]: ((params: EventLLMMessageOnErrorParams) => void) },
 		onAbort: {} as { [eventId: string]: (() => void) }, // NOT sent over the channel, result is instant when we call .abort()
 	}
+
+	// requestId -> which provider/model the request was for, kept only for readable error logging
+	private readonly requestModelSelection: { [requestId: string]: ModelSelection } = {}
 
 	// list hooks
 	private readonly listHooks = {
@@ -80,9 +84,12 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 			this._clearChannelHooks(e.requestId)
 		}))
 		this._register((this.channel.listen('onError_sendLLMMessage') satisfies Event<EventLLMMessageOnErrorParams>)(e => {
+			const modelSelection = this.requestModelSelection[e.requestId]
+			const source = modelSelection ? `${modelSelection.providerName}/${modelSelection.modelName}` : 'unknown provider/model'
+			console.error(`[LLMMessageService] ${source} request ${e.requestId} failed: ${e.message}`, e.fullError ?? '')
+
 			this.llmMessageHooks.onError[e.requestId]?.(e);
 			this._clearChannelHooks(e.requestId);
-			console.error('Error in LLMMessageService:', JSON.stringify(e))
 		}))
 		// .list()
 		this._register((this.channel.listen('onSuccess_list_ollama') satisfies Event<EventModelListOnSuccessParams<OllamaModelResponse>>)(e => {
@@ -126,6 +133,7 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 		this.llmMessageHooks.onFinalMessage[requestId] = onFinalMessage
 		this.llmMessageHooks.onError[requestId] = onError
 		this.llmMessageHooks.onAbort[requestId] = onAbort // used internally only
+		this.requestModelSelection[requestId] = modelSelection
 
 		// params will be stripped of all its functions over the IPC channel
 		this.channel.call('sendLLMMessage', {
@@ -186,6 +194,7 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 		delete this.llmMessageHooks.onText[requestId]
 		delete this.llmMessageHooks.onFinalMessage[requestId]
 		delete this.llmMessageHooks.onError[requestId]
+		delete this.requestModelSelection[requestId]
 
 		delete this.listHooks.ollama.success[requestId]
 		delete this.listHooks.ollama.error[requestId]

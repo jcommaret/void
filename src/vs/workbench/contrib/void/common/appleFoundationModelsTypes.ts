@@ -37,6 +37,7 @@ export type AppleFoundationModelsEnsureFailureReason =
 	| 'install-failed'
 	| 'afm-missing'
 	| 'fm-missing'
+	| 'fm-crashed'
 	| 'server-timeout';
 
 export type AppleFoundationModelsEnsureResult =
