@@ -192,7 +192,11 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 
 	// returns a getter for the crash message (exit code + captured stdout/stderr) if `fm` has already exited, or null while it's still running
 	private async _startFmServer(fmPath: string, port: number, log: string[]): Promise<() => string | null> {
-		if (this._child && !this._child.killed) {
+		// `.killed` only flips to true when *this* object's `.kill()` was called — it stays false if the
+		// process died some other way (crashed, or was killed externally, e.g. `kill <pid>` from a
+		// shell). Check `.exitCode`/`.signalCode` instead: both are non-null once the process has
+		// actually exited, however that happened, so a stale reference doesn't block a fresh spawn.
+		if (this._child && this._child.exitCode === null && this._child.signalCode === null) {
 			log.push('Kodia fm process already running.');
 			return () => null;
 		}
@@ -392,7 +396,9 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 	}
 
 	private async _startServer(afmPath: string, port: number, log: string[]): Promise<void> {
-		if (this._child && !this._child.killed) {
+		// see the matching comment in _startFmServer: `.killed` doesn't reflect processes that died
+		// some other way, so check `.exitCode`/`.signalCode` instead.
+		if (this._child && this._child.exitCode === null && this._child.signalCode === null) {
 			log.push('Kodia afm process already running.');
 			return;
 		}
