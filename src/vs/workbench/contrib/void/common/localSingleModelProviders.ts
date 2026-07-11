@@ -6,8 +6,8 @@
 import { defaultModelsOfProvider } from './modelCapabilities.js';
 import { ProviderName, VoidStatefulModelInfo } from './voidSettingsTypes.js';
 
-/** One loaded model per endpoint (mlx_lm.server / afm). */
-export const singleAutodetectedLocalProviders = ['mlx', 'appleFoundationModels'] as const satisfies ProviderName[]
+/** One loaded model per endpoint (mlx_lm.server). */
+export const singleAutodetectedLocalProviders = ['mlx'] as const satisfies ProviderName[]
 
 export type SingleAutodetectedLocalProvider = typeof singleAutodetectedLocalProviders[number]
 
@@ -100,8 +100,8 @@ export const dedupeProviderModels = (providerName: ProviderName, models: VoidSta
 
 export const normalizeAutodetectedModelNamesForProvider = (providerName: ProviderName, modelNames: string[]): string[] => {
 	if (providerName === 'appleFoundationModels') {
-		const normalized = modelNames.map(canonicalAppleFoundationModelName)
-		return [new Set(normalized).values().next().value ?? 'foundation']
+		// `fm serve` (macOS 27+) can expose both `system` and `pcc` on the same endpoint; list both as separate, selectable models
+		return [...new Set(modelNames.map(canonicalAppleFoundationModelName))]
 	}
 	if (providerName === 'mlx') {
 		const unique = [...new Set(modelNames.map(n => canonicalModelNameForProvider(providerName, n)))]
@@ -117,21 +117,11 @@ export const consolidateSingleAutodetectedProviderModels = (
 	const customModels = mergedModels.filter(m => m.type === 'custom')
 	const autodetected = mergedModels.find(m => m.type === 'autodetected')
 	if (!autodetected) {
-		if (providerName === 'appleFoundationModels') {
-			return [{ modelName: 'foundation', type: 'autodetected', isHidden: false }]
-		}
 		return customModels
 	}
-	const primaryName = providerName === 'appleFoundationModels'
-		? canonicalAppleFoundationModelName(autodetected.modelName)
-		: autodetected.modelName
-	const primary: VoidStatefulModelInfo = {
-		...autodetected,
-		modelName: primaryName,
-		type: 'autodetected',
-	}
+	const primary: VoidStatefulModelInfo = { ...autodetected, type: 'autodetected' }
 	return dedupeProviderModels(providerName, [
 		primary,
-		...customModels.filter(m => canonicalModelNameForProvider(providerName, m.modelName).toLowerCase() !== primaryName.toLowerCase()),
+		...customModels.filter(m => canonicalModelNameForProvider(providerName, m.modelName).toLowerCase() !== primary.modelName.toLowerCase()),
 	])
 }

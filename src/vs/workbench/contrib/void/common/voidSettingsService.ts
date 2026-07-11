@@ -365,7 +365,7 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 					readS.settingsOfProvider[providerName].headersJSON = '{}'
 				}
 
-				if (providerName === 'mlx' || providerName === 'appleFoundationModels') {
+				if (providerName === 'mlx') {
 					readS.settingsOfProvider[providerName].models = consolidateSingleAutodetectedProviderModels(
 						providerName,
 						readS.settingsOfProvider[providerName].models,
@@ -552,7 +552,7 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 
 		const normalizedNames = normalizeAutodetectedModelNamesForProvider(providerName, autodetectedModelNames)
 		let newModels = _modelsWithSwappedInNewModels({ providerName, existingModels: models, models: normalizedNames, type: 'autodetected' })
-		if (providerName === 'mlx' || providerName === 'appleFoundationModels') {
+		if (providerName === 'mlx') {
 			newModels = consolidateSingleAutodetectedProviderModels(providerName, newModels)
 		}
 		this.setSettingOfProvider(providerName, 'models', newModels)

@@ -140,7 +140,7 @@ export const subTextMdOfProviderName = (providerName: ProviderName): string => {
 	if (providerName === 'vLLM') return 'Read more about custom [Endpoints here](https://docs.vllm.ai/en/latest/getting_started/quickstart.html#openai-compatible-server).'
 	if (providerName === 'lmStudio') return 'Read more about custom [Endpoints here](https://lmstudio.ai/docs/app/api/endpoints/openai).'
 	if (providerName === 'mlx') return 'Only one loaded model is listed at a time (autodetected). See the MLX instructions below to switch models or add a second one.'
-	if (providerName === 'appleFoundationModels') return 'On-device model `foundation` via [maclocal-api](https://github.com/scouzi1966/maclocal-api) (`afm` on port 9999). Kodia can install via Homebrew or `pip install macafm`. For MLX models on the same stack, run `afm mlx -m <model>` separately or use the **MLX** provider.'
+	if (providerName === 'appleFoundationModels') return 'Kodia can auto-detect two models here: **system** (fully on-device, no network) and **pcc** (offloaded to Apple\'s [Private Cloud Compute](https://security.apple.com/blog/private-cloud-compute/) for larger requests, under the same privacy guarantees as on-device). On macOS 27+ these come from the built-in `fm serve`; on macOS 26 and earlier from [maclocal-api](https://github.com/scouzi1966/maclocal-api) (`afm` on port 9999, install via Homebrew or `pip install macafm`, model id `foundation`). For MLX models on the same stack, run `afm mlx -m <model>` separately or use the **MLX** provider.'
 	if (providerName === 'liteLLM') return 'Read more about endpoints [here](https://docs.litellm.ai/docs/providers/openai_compatible).'
 
 	throw new Error(`subTextMdOfProviderName: Unknown provider name: "${providerName}"`)

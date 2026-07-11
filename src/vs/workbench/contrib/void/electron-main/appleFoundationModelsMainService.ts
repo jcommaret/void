@@ -14,6 +14,8 @@ import {
 	AFM_PIP_PACKAGE,
 	APPLE_FOUNDATION_MODELS_DEFAULT_PORT,
 	AppleFoundationModelsEnsureResult,
+	FM_CLI_MIN_MACOS_VERSION,
+	FM_CLI_PATH,
 	IAppleFoundationModelsMainService,
 	MACLOCAL_API_REPO_URL,
 } from '../common/appleFoundationModelsTypes.js';
@@ -38,8 +40,13 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 		}
 
 		if (await this._isServerUp(endpoint)) {
-			log.push(`maclocal-api (afm) already running at ${endpoint}`);
+			log.push(`Foundation Models server already running at ${endpoint}`);
 			return { ok: true, endpoint, action: 'already-running', log };
+		}
+
+		const macOSMajorVersion = await this._getMacOSMajorVersion();
+		if (macOSMajorVersion !== null && macOSMajorVersion >= FM_CLI_MIN_MACOS_VERSION) {
+			return this._ensureReadyViaFm(options, port, endpoint, log);
 		}
 
 		let didInstall = false;
@@ -101,6 +108,85 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 			log,
 			errorMessage: `Server did not respond at ${endpoint}. Run manually: afm -p ${port} -H 127.0.0.1`,
 		};
+	}
+
+	private async _getMacOSMajorVersion(): Promise<number | null> {
+		try {
+			const { stdout } = await exec('sw_vers -productVersion', { timeout: 5_000 });
+			const major = parseInt(stdout.trim().split('.')[0], 10);
+			return Number.isFinite(major) ? major : null;
+		} catch {
+			return null;
+		}
+	}
+
+	// macOS 27+ ships the `fm` CLI as a system binary (no install step); use `fm serve` instead of the third-party `afm` tool
+	private async _ensureReadyViaFm(
+		options: { installIfMissing: boolean; startServer: boolean; port?: number },
+		port: number,
+		endpoint: string,
+		log: string[],
+	): Promise<AppleFoundationModelsEnsureResult> {
+		const fmPath = await this._whichFm();
+		if (!fmPath) {
+			log.push('`fm` not found (expected to ship with macOS 27+).');
+			return {
+				ok: false,
+				reason: 'fm-missing',
+				log,
+				errorMessage: `\`fm\` was not found at ${FM_CLI_PATH} or on PATH. It ships with macOS ${FM_CLI_MIN_MACOS_VERSION}+; make sure macOS is up to date.`,
+			};
+		}
+		log.push(`Found fm: ${fmPath}`);
+
+		if (options.startServer) {
+			await this._startFmServer(fmPath, port, log);
+		}
+
+		for (let i = 0; i < 45; i++) {
+			if (await this._isServerUp(endpoint)) {
+				log.push(`fm serve ready at ${endpoint}`);
+				return { ok: true, endpoint, action: 'started', log };
+			}
+			await sleep(1000);
+		}
+
+		log.push('Timed out waiting for fm.');
+		return {
+			ok: false,
+			reason: 'server-timeout',
+			log,
+			errorMessage: `Server did not respond at ${endpoint}. Run manually: fm serve --port ${port} --host 127.0.0.1`,
+		};
+	}
+
+	private async _whichFm(): Promise<string | null> {
+		if (existsSync(FM_CLI_PATH)) {
+			return FM_CLI_PATH;
+		}
+		try {
+			const { stdout } = await exec('which fm', { timeout: 5_000 });
+			const path = stdout.trim();
+			return path || null;
+		} catch {
+			return null;
+		}
+	}
+
+	private async _startFmServer(fmPath: string, port: number, log: string[]): Promise<void> {
+		if (this._child && !this._child.killed) {
+			log.push('Kodia fm process already running.');
+			return;
+		}
+
+		log.push(`Starting fm: fm serve --port ${port} --host 127.0.0.1…`);
+		const child = spawn(fmPath, ['serve', '--port', String(port), '--host', '127.0.0.1'], {
+			detached: true,
+			stdio: 'ignore',
+		});
+		child.unref();
+		this._child = child;
+		this._spawnedByVoid = true;
 	}
 
 	async stopServerIfSpawnedByVoid(): Promise<void> {

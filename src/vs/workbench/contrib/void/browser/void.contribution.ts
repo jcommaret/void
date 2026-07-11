@@ -55,6 +55,9 @@ import './tooltipService.js'
 // register onboarding service
 import './voidOnboardingService.js'
 
+// auto-bootstrap project memory on first workspace open
+import './projectMemoryBootstrapContrib.js'
+
 // disable built-in GitHub Copilot extension and sign-in UI
 import './disableCopilotContribution.js'
 

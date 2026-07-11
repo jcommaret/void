@@ -23,3 +23,7 @@ export const THREAD_STORAGE_KEY = 'void.chatThreadStorageII'
 export const OPT_OUT_KEY = 'void.app.optOutAll'
 
 export const PROJECT_MEMORY_STORAGE_KEY = 'void.projectMemory.v1'
+
+// set once we've attempted to auto-bootstrap project memory for a workspace, so we never retry
+// (even if the run failed or the user later clears the memory on purpose)
+export const PROJECT_MEMORY_BOOTSTRAP_ATTEMPTED_KEY = 'void.projectMemory.bootstrapAttempted.v1'

@@ -1384,6 +1384,12 @@ const appleFoundationModelsModelOptions = {
 	'foundation': { // maclocal-api afm — https://github.com/scouzi1966/maclocal-api
 		...appleFoundationModelCapabilities,
 	},
+	'system': { // fm serve (macOS 27+) — on-device Apple Foundation Model
+		...appleFoundationModelCapabilities,
+	},
+	'pcc': { // fm serve (macOS 27+) — Apple Foundation Model on Private Cloud Compute
+		...appleFoundationModelCapabilities,
+	},
 } as const satisfies { [s: string]: VoidStaticModelInfo }
 
 const appleFoundationModelsSettings: VoidStaticProviderInfo = {
