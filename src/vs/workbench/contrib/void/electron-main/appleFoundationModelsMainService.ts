@@ -7,6 +7,8 @@ import { spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { exec as _exec } from 'child_process';
 import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { spawn as ptySpawn, type IPty } from 'node-pty';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import {
 	AFM_HOMEBREW_FORMULA,
@@ -25,10 +27,34 @@ const exec = promisify(_exec);
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
+// Wraps either a plain child_process or a node-pty pseudo-terminal behind one shape, so
+// _startFmServer (pty) and _startServer/stopServerIfSpawnedByVoid (plain process) can share the
+// same `_child` bookkeeping without a discriminated union at every call site.
+interface ManagedChildHandle {
+	kill(): void;
+	isAlive(): boolean;
+}
+const wrapChildProcess = (child: ChildProcess): ManagedChildHandle => ({
+	kill: () => child.kill(),
+	// `.killed` only flips to true when *this* object's `.kill()` was called — it stays false if the
+	// process died some other way (crashed, or was killed externally, e.g. `kill <pid>` from a shell).
+	// `.exitCode`/`.signalCode` are non-null once the process has actually exited, however that
+	// happened, so a stale reference doesn't block a fresh spawn.
+	isAlive: () => child.exitCode === null && child.signalCode === null,
+});
+const wrapPty = (ptyProcess: IPty): ManagedChildHandle => {
+	let alive = true;
+	ptyProcess.onExit(() => { alive = false; });
+	return {
+		kill: () => ptyProcess.kill(),
+		isAlive: () => alive,
+	};
+};
+
 export class AppleFoundationModelsMainService implements IAppleFoundationModelsMainService {
 	readonly _serviceBrand: undefined;
 
-	private _child: ChildProcess | null = null;
+	private _child: ManagedChildHandle | null = null;
 	private _spawnedByVoid = false;
 
 	async ensureReady(options: { installIfMissing: boolean; startServer: boolean; port?: number }): Promise<AppleFoundationModelsEnsureResult> {
@@ -190,52 +216,49 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 		}
 	}
 
-	// returns a getter for the crash message (exit code + captured stdout/stderr) if `fm` has already exited, or null while it's still running
+	// returns a getter for the crash message (exit code + captured output) if `fm` has already exited, or null while it's still running
 	private async _startFmServer(fmPath: string, port: number, log: string[]): Promise<() => string | null> {
-		// `.killed` only flips to true when *this* object's `.kill()` was called — it stays false if the
-		// process died some other way (crashed, or was killed externally, e.g. `kill <pid>` from a
-		// shell). Check `.exitCode`/`.signalCode` instead: both are non-null once the process has
-		// actually exited, however that happened, so a stale reference doesn't block a fresh spawn.
-		if (this._child && this._child.exitCode === null && this._child.signalCode === null) {
+		if (this._child?.isAlive()) {
 			log.push('Kodia fm process already running.');
 			return () => null;
 		}
 
-		// NOT detached: `detached: true` calls setsid(2), moving the child to a new session and
-		// severing its lineage from Kodia's own (Terminal/Aqua-rooted) session. Confirmed by testing:
-		// `fm respond --model pcc` succeeds when run from a normal Terminal session, and succeeds when
-		// Kodia talks to an `fm serve` started that way — but fails with "PCC inference is not
-		// available in this context" when Kodia spawns `fm serve` detached. PCC (unlike the on-device
-		// `system` model) apparently checks the caller's session lineage. `unref()` below still lets
-		// Kodia's main process exit without waiting on this child.
+		// Spawned through a real pseudo-terminal (node-pty), not plain pipes: `fm serve` 503s any
+		// request for the "pcc" (Private Cloud Compute) model with "PCC inference is not available in
+		// this context" when it has no TTY attached — confirmed by testing the same command, from the
+		// same Terminal session, both attached to a TTY (works) and with stdio redirected to files
+		// (fails identically to Kodia's old plain-pipe spawn). The on-device `system` model is
+		// unaffected either way. node-pty is already a dependency here (used for the integrated
+		// terminal).
 		log.push(`Starting fm: fm serve --port ${port} --host 127.0.0.1…`);
-		const child = spawn(fmPath, ['serve', '--port', String(port), '--host', '127.0.0.1'], {
-			stdio: ['ignore', 'pipe', 'pipe'],
+		const ptyProcess = ptySpawn(fmPath, ['serve', '--port', String(port), '--host', '127.0.0.1'], {
+			name: 'xterm-256color',
+			cols: 120,
+			rows: 30,
+			cwd: homedir(),
+			env: process.env,
 		});
 
 		const output: string[] = [];
 		let crashInfo: string | null = null;
-		const capture = (chunk: Buffer) => {
-			output.push(chunk.toString());
+		ptyProcess.onData(chunk => {
+			output.push(chunk);
 			if (output.length > 50) {
 				output.shift();
 			}
-		};
-		child.stdout?.on('data', capture);
-		child.stderr?.on('data', capture);
-		child.on('exit', (code, signal) => {
-			crashInfo = `fm exited (code=${code ?? 'null'}, signal=${signal ?? 'null'}): ${output.join('').trim() || '(no output)'}`;
+		});
+		ptyProcess.onExit(({ exitCode, signal }) => {
+			crashInfo = `fm exited (code=${exitCode}, signal=${signal ?? 'null'}): ${output.join('').trim() || '(no output)'}`;
 		});
 
-		child.unref();
-		this._child = child;
+		this._child = wrapPty(ptyProcess);
 		this._spawnedByVoid = true;
 
 		return () => crashInfo;
 	}
 
 	async stopServerIfSpawnedByVoid(): Promise<void> {
-		if (!this._spawnedByVoid || !this._child || this._child.killed) {
+		if (!this._spawnedByVoid || !this._child?.isAlive()) {
 			return;
 		}
 		try {
@@ -396,9 +419,7 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 	}
 
 	private async _startServer(afmPath: string, port: number, log: string[]): Promise<void> {
-		// see the matching comment in _startFmServer: `.killed` doesn't reflect processes that died
-		// some other way, so check `.exitCode`/`.signalCode` instead.
-		if (this._child && this._child.exitCode === null && this._child.signalCode === null) {
+		if (this._child?.isAlive()) {
 			log.push('Kodia afm process already running.');
 			return;
 		}
@@ -409,7 +430,7 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 			stdio: 'ignore',
 		});
 		child.unref();
-		this._child = child;
+		this._child = wrapChildProcess(child);
 		this._spawnedByVoid = true;
 	}
 }
