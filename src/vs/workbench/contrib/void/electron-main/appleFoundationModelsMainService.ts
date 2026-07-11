@@ -14,6 +14,7 @@ import {
 	AFM_PIP_PACKAGE,
 	APPLE_FOUNDATION_MODELS_DEFAULT_PORT,
 	AppleFoundationModelsEnsureResult,
+	FM_CLI_DEFAULT_PORT,
 	FM_CLI_MIN_MACOS_VERSION,
 	FM_CLI_PATH,
 	IAppleFoundationModelsMainService,
@@ -32,21 +33,26 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 
 	async ensureReady(options: { installIfMissing: boolean; startServer: boolean; port?: number }): Promise<AppleFoundationModelsEnsureResult> {
 		const log: string[] = [];
-		const port = options.port ?? APPLE_FOUNDATION_MODELS_DEFAULT_PORT;
-		const endpoint = `http://127.0.0.1:${port}`;
 
 		if (!isMacintosh) {
 			return { ok: false, reason: 'not-mac', log };
 		}
 
-		if (await this._isServerUp(endpoint)) {
-			log.push(`Foundation Models server already running at ${endpoint}`);
-			return { ok: true, endpoint, action: 'already-running', log };
+		// decide macOS-version-appropriate backend (and its own default port) before checking anything already listening,
+		// so a leftover/manually-started `afm` process on the legacy port is never mistaken for `fm serve`, or vice versa
+		const macOSMajorVersion = await this._getMacOSMajorVersion();
+		const useFm = macOSMajorVersion !== null && macOSMajorVersion >= FM_CLI_MIN_MACOS_VERSION;
+
+		const port = options.port ?? (useFm ? FM_CLI_DEFAULT_PORT : APPLE_FOUNDATION_MODELS_DEFAULT_PORT);
+		const endpoint = `http://127.0.0.1:${port}`;
+
+		if (useFm) {
+			return this._ensureReadyViaFm(options, port, endpoint, log);
 		}
 
-		const macOSMajorVersion = await this._getMacOSMajorVersion();
-		if (macOSMajorVersion !== null && macOSMajorVersion >= FM_CLI_MIN_MACOS_VERSION) {
-			return this._ensureReadyViaFm(options, port, endpoint, log);
+		if (await this._isServerUp(endpoint)) {
+			log.push(`maclocal-api (afm) already running at ${endpoint}`);
+			return { ok: true, endpoint, action: 'already-running', log };
 		}
 
 		let didInstall = false;
@@ -127,6 +133,11 @@ export class AppleFoundationModelsMainService implements IAppleFoundationModelsM
 		endpoint: string,
 		log: string[],
 	): Promise<AppleFoundationModelsEnsureResult> {
+		if (await this._isServerUp(endpoint)) {
+			log.push(`fm serve already running at ${endpoint}`);
+			return { ok: true, endpoint, action: 'already-running', log };
+		}
+
 		const fmPath = await this._whichFm();
 		if (!fmPath) {
 			log.push('`fm` not found (expected to ship with macOS 27+).');

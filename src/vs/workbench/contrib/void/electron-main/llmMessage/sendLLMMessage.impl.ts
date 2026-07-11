@@ -279,7 +279,7 @@ const toOpenAICompatibleTool = (toolInfo: InternalToolInfo) => {
 			description: description,
 			parameters: {
 				type: 'object',
-				properties: params,
+				properties: paramsWithType,
 				// required: Object.keys(params), // in strict mode, all params are required and additionalProperties is false
 				// additionalProperties: false,
 			},

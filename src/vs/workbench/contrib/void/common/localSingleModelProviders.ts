@@ -3,6 +3,7 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
+import { APPLE_FOUNDATION_MODELS_CHAT_MODEL_IDS } from './appleFoundationModelsTypes.js';
 import { defaultModelsOfProvider } from './modelCapabilities.js';
 import { ProviderName, VoidStatefulModelInfo } from './voidSettingsTypes.js';
 
@@ -100,8 +101,11 @@ export const dedupeProviderModels = (providerName: ProviderName, models: VoidSta
 
 export const normalizeAutodetectedModelNamesForProvider = (providerName: ProviderName, modelNames: string[]): string[] => {
 	if (providerName === 'appleFoundationModels') {
-		// `fm serve` (macOS 27+) can expose both `system` and `pcc` on the same endpoint; list both as separate, selectable models
-		return [...new Set(modelNames.map(canonicalAppleFoundationModelName))]
+		// `fm serve` (macOS 27+) can expose both `system` and `pcc` on the same endpoint; list both as separate, selectable models.
+		// afm/fm also list embedding-only ids (e.g. `apple-nl-contextual-en`) in /v1/models — those can't chat-complete, so drop them.
+		const chatCapable = new Set<string>(APPLE_FOUNDATION_MODELS_CHAT_MODEL_IDS)
+		const normalized = modelNames.map(canonicalAppleFoundationModelName).filter(n => chatCapable.has(n))
+		return [...new Set(normalized)]
 	}
 	if (providerName === 'mlx') {
 		const unique = [...new Set(modelNames.map(n => canonicalModelNameForProvider(providerName, n)))]
