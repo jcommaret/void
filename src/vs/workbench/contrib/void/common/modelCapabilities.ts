@@ -1389,8 +1389,10 @@ const appleFoundationModelsModelOptions = {
 	'system': { // fm serve (macOS 27+) — on-device Apple Foundation Model
 		...appleFoundationModelCapabilities,
 	},
-	'pcc': { // fm serve (macOS 27+) — Apple Foundation Model on Private Cloud Compute
+	'pcc': { // fm serve (macOS 27+) — Apple Foundation Model on Private Cloud Compute; larger window than on-device `system`
 		...appleFoundationModelCapabilities,
+		contextWindow: 32_000,
+		reservedOutputTokenSpace: 4_096,
 	},
 } as const satisfies { [s: string]: VoidStaticModelInfo }
 
