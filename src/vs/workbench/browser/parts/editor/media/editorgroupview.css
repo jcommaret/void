@@ -121,15 +121,15 @@
 }
 
 .monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-dark.svg');
+	background-image: url('./void_cube_noshadow.png'); /* // Void */
 }
 
 .monaco-workbench.hc-light .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcLight.svg');
+	background-image: url('./void_cube_noshadow.png'); /* // Void */
 }
 
 .monaco-workbench.hc-black .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcDark.svg');
+	background-image: url('./void_cube_noshadow.png'); /* // Void */
 }
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark .shortcuts {
