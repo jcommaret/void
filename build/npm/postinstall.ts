@@ -52,7 +52,7 @@ function spawnAsync(command: string, args: string[], opts: child_process.SpawnOp
 	});
 }
 
-async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): Promise<void> {
+async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions, npmCommand?: string): Promise<void> {
 	const finalOpts: child_process.SpawnOptions = {
 		env: { ...process.env },
 		...(opts ?? {}),
@@ -60,7 +60,7 @@ async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): 
 		shell: true,
 	};
 
-	const command = process.env['npm_command'] || 'install';
+	const command = npmCommand ?? process.env['npm_command'] ?? 'install';
 
 	if (process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'] && /^(.build\/distro\/npm\/)?remote$/.test(dir)) {
 		const syncOpts: child_process.SpawnSyncOptions = {
@@ -133,6 +133,23 @@ function setNpmrcConfig(dir: string, env: NodeJS.ProcessEnv) {
 	if (dir === 'build') {
 		env['npm_config_target'] = process.versions.node;
 		env['npm_config_arch'] = process.arch;
+	}
+}
+
+// node-tree-sitter's binding.gyp hardcodes -std=c++17, which fails to compile
+// against Node >= 23's V8 headers (they require C++20). Idempotent: a no-op
+// once upstream fixes this. Refs https://github.com/tree-sitter/node-tree-sitter/issues/268
+function patchTreeSitterCxxStandard(dir: string) {
+	const bindingGypPath = path.join(root, dir, 'node_modules', 'tree-sitter', 'binding.gyp');
+	if (!fs.existsSync(bindingGypPath)) {
+		return;
+	}
+
+	const contents = fs.readFileSync(bindingGypPath, 'utf8');
+	const patched = contents.replace(/c\+\+17/g, 'c++20');
+	if (patched !== contents) {
+		fs.writeFileSync(bindingGypPath, patched);
+		log(dir, 'Patched tree-sitter/binding.gyp to require C++20 for Node >= 23 compatibility');
 	}
 }
 
@@ -227,14 +244,21 @@ async function main() {
 		}
 
 		if (dir === 'build') {
-			nativeTasks.push(() => {
+			nativeTasks.push(async () => {
 				const env: NodeJS.ProcessEnv = { ...process.env };
 				if (process.env['CC']) { env['CC'] = 'gcc'; }
 				if (process.env['CXX']) { env['CXX'] = 'g++'; }
 				if (process.env['CXXFLAGS']) { env['CXXFLAGS'] = ''; }
 				if (process.env['LDFLAGS']) { env['LDFLAGS'] = ''; }
 				setNpmrcConfig('build', env);
-				return npmInstallAsync('build', { env });
+
+				// Install without lifecycle scripts first so we can patch
+				// tree-sitter's binding.gyp before its native build runs, then
+				// trigger that build (and any other skipped scripts) via rebuild.
+				const npmCommand = process.env['npm_command'] || 'install';
+				await npmInstallAsync('build', { env: { ...env, npm_config_ignore_scripts: 'true' } }, npmCommand);
+				patchTreeSitterCxxStandard('build');
+				await npmInstallAsync('build', { env }, 'rebuild');
 			});
 			continue;
 		}
