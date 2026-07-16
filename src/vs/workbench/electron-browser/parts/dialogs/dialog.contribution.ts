@@ -37,7 +37,7 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IProductService private productService: IProductService,
 		@IClipboardService clipboardService: IClipboardService,
-		@INativeHostService private nativeHostService: INativeHostService,
+		@INativeHostService nativeHostService: INativeHostService,
 		@IWorkbenchEnvironmentService private environmentService: IWorkbenchEnvironmentService,
 	) {
 		super();
@@ -87,7 +87,7 @@ export class DialogHandlerContribution extends Disposable implements IWorkbenchC
 
 				// About
 				else {
-					const aboutDialogDetails = createNativeAboutDialogDetails(this.productService, await this.nativeHostService.getOSProperties());
+					const aboutDialogDetails = createNativeAboutDialogDetails(this.productService);
 
 					if (this.useCustomDialog) {
 						await this.browserImpl.value.about(aboutDialogDetails.title, aboutDialogDetails.details, aboutDialogDetails.detailsToCopy);
