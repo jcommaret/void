@@ -103,7 +103,9 @@ export const defaultModelsOfProvider = {
 		'grok-4.20-multi-agent-0309',
 	],
 	gemini: [ // https://ai.google.dev/gemini-api/docs/models/gemini
+		'gemini-3.6-flash',
 		'gemini-3.5-flash',
+		'gemini-3.5-flash-lite',
 		'gemini-3.1-pro-preview',
 		'gemini-3.1-flash-lite',
 		'gemini-2.5-pro',
@@ -416,11 +418,15 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 		};
 	}
 
-	if (lower.includes('gemini') && lower.includes('3.5')) return toFallback(geminiModelOptions, 'gemini-3.5-flash')
+	if (lower.includes('gemini') && lower.includes('3.6')) return toFallback(geminiModelOptions, 'gemini-3.6-flash')
+	if (lower.includes('gemini') && lower.includes('3.5')) {
+		if (lower.includes('lite')) return toFallback(geminiModelOptions, 'gemini-3.5-flash-lite')
+		return toFallback(geminiModelOptions, 'gemini-3.5-flash')
+	}
 	if (lower.includes('gemini') && (lower.includes('3.1') || lower.includes('gemini-3'))) {
 		if (lower.includes('lite')) return toFallback(geminiModelOptions, 'gemini-3.1-flash-lite')
 		if (lower.includes('pro')) return toFallback(geminiModelOptions, 'gemini-3.1-pro-preview')
-		return toFallback(geminiModelOptions, 'gemini-3.5-flash')
+		return toFallback(geminiModelOptions, 'gemini-3.6-flash')
 	}
 	if (lower.includes('gemini') && (lower.includes('2.5') || lower.includes('2-5'))) {
 		if (lower.includes('flash-lite') || lower.includes('flash_lite')) return toFallback(geminiModelOptions, 'gemini-2.5-flash-lite')
@@ -883,10 +889,42 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 			reasoningReservedOutputTokenSpace: 8192,
 		},
 	},
+	'gemini-3.6-flash': { // https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash
+		contextWindow: 1_048_576,
+		reservedOutputTokenSpace: 65_536,
+		cost: { input: 1.50, output: 7.50 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'separated',
+		specialToolFormat: 'gemini-style',
+		reasoningCapabilities: {
+			supportsReasoning: true,
+			canTurnOffReasoning: true,
+			canIOReasoning: false,
+			reasoningSlider: { type: 'budget_slider', min: 1024, max: 8192, default: 1024 },
+			reasoningReservedOutputTokenSpace: 8192,
+		},
+	},
 	'gemini-3.5-flash': { // https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash
 		contextWindow: 1_048_576,
 		reservedOutputTokenSpace: 65_536,
 		cost: { input: 0.15, output: 0.60 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'separated',
+		specialToolFormat: 'gemini-style',
+		reasoningCapabilities: {
+			supportsReasoning: true,
+			canTurnOffReasoning: true,
+			canIOReasoning: false,
+			reasoningSlider: { type: 'budget_slider', min: 1024, max: 8192, default: 1024 },
+			reasoningReservedOutputTokenSpace: 8192,
+		},
+	},
+	'gemini-3.5-flash-lite': { // https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite
+		contextWindow: 1_048_576,
+		reservedOutputTokenSpace: 8_192,
+		cost: { input: 0.30, output: 2.50 },
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -938,11 +976,13 @@ const geminiSettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof geminiModelOptions | null = null
-		if (lower.includes('3.5') && lower.includes('flash')) fallbackName = 'gemini-3.5-flash'
+		if (lower.includes('3.6')) fallbackName = 'gemini-3.6-flash'
+		else if (lower.includes('3.5') && lower.includes('lite')) fallbackName = 'gemini-3.5-flash-lite'
+		else if (lower.includes('3.5') && lower.includes('flash')) fallbackName = 'gemini-3.5-flash'
 		else if (lower.includes('3.1') || lower.includes('gemini-3')) {
 			if (lower.includes('lite')) fallbackName = 'gemini-3.1-flash-lite'
 			else if (lower.includes('pro')) fallbackName = 'gemini-3.1-pro-preview'
-			else fallbackName = 'gemini-3.5-flash'
+			else fallbackName = 'gemini-3.6-flash'
 		}
 		else if (lower.includes('2.5') || lower.includes('2-5')) {
 			if (lower.includes('flash-lite') || lower.includes('flash_lite')) fallbackName = 'gemini-2.5-flash-lite'
