@@ -79,7 +79,9 @@ export const defaultProviderSettings = {
 
 export const defaultModelsOfProvider = {
 	openAI: [ // https://platform.openai.com/docs/models
-		'gpt-5.6',
+		'gpt-5.6', // alias → gpt-5.6-sol
+		'gpt-5.6-terra',
+		'gpt-5.6-luna',
 		'gpt-5.5',
 		'gpt-5.4',
 		'gpt-5.4-mini',
@@ -87,6 +89,7 @@ export const defaultModelsOfProvider = {
 	],
 	anthropic: [ // https://docs.anthropic.com/en/docs/about-claude/models/overview
 		'claude-fable-5',
+		'claude-opus-5',
 		'claude-sonnet-5',
 		'claude-opus-4-8',
 		'claude-opus-4-7',
@@ -438,6 +441,7 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('claude-3-7') || lower.includes('claude-3.7')) return toFallback(anthropicModelOptions, 'claude-3-7-sonnet-20250219')
 	if (lower.includes('claude-3-5') || lower.includes('claude-3.5')) return toFallback(anthropicModelOptions, 'claude-sonnet-4-6')
 	if (lower.includes('fable-5') || lower.includes('fable5')) return toFallback(anthropicModelOptions, 'claude-fable-5')
+	if (lower.includes('opus-5') || lower.includes('opus5')) return toFallback(anthropicModelOptions, 'claude-opus-5')
 	if (lower.includes('opus-4-8') || lower.includes('opus-4.8')) return toFallback(anthropicModelOptions, 'claude-opus-4-8')
 	if (lower.includes('sonnet-5') || lower.includes('sonnet5')) return toFallback(anthropicModelOptions, 'claude-sonnet-5')
 	if (lower.includes('opus-4-7') || lower.includes('opus-4.7')) return toFallback(anthropicModelOptions, 'claude-opus-4-7')
@@ -491,7 +495,11 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 
 	if (lower.includes('quasar') || lower.includes('quaser')) return toFallback(openSourceModelOptions_assumingOAICompat, 'quasar')
 
-	if (lower.includes('gpt') && lower.includes('5.6')) return toFallback(openAIModelOptions, 'gpt-5.6')
+	if (lower.includes('gpt') && lower.includes('5.6')) {
+		if (lower.includes('terra')) return toFallback(openAIModelOptions, 'gpt-5.6-terra')
+		if (lower.includes('luna')) return toFallback(openAIModelOptions, 'gpt-5.6-luna')
+		return toFallback(openAIModelOptions, 'gpt-5.6')
+	}
 	if (lower.includes('gpt') && lower.includes('5.5')) return toFallback(openAIModelOptions, 'gpt-5.5')
 	if (lower.includes('gpt') && lower.includes('5.4') && lower.includes('nano')) return toFallback(openAIModelOptions, 'gpt-5.4-nano')
 	if (lower.includes('gpt') && lower.includes('5.4') && lower.includes('mini')) return toFallback(openAIModelOptions, 'gpt-5.4-mini')
@@ -533,6 +541,16 @@ const anthropicModelOptions = {
 		contextWindow: 1_000_000,
 		reservedOutputTokenSpace: 128_000,
 		cost: { input: 10.00, cache_read: 1.00, cache_write: 12.50, output: 50.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'anthropic-style',
+		supportsSystemMessage: 'separated',
+		reasoningCapabilities: anthropicAdaptiveThinkingCapabilities,
+	},
+	'claude-opus-5': { // https://docs.anthropic.com/en/docs/about-claude/models/overview — same price as Opus 4.8
+		contextWindow: 1_000_000,
+		reservedOutputTokenSpace: 128_000,
+		cost: { input: 5.00, cache_read: 0.50, cache_write: 6.25, output: 25.00 },
 		downloadable: false,
 		supportsFIM: false,
 		specialToolFormat: 'anthropic-style',
@@ -643,6 +661,7 @@ const anthropicSettings: VoidStaticProviderInfo = {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof anthropicModelOptions | null = null
 		if (lower.includes('fable-5') || lower.includes('fable5')) fallbackName = 'claude-fable-5'
+		else if (lower.includes('opus-5') || lower.includes('opus5')) fallbackName = 'claude-opus-5'
 		else if (lower.includes('opus-4-8') || lower.includes('opus-4.8')) fallbackName = 'claude-opus-4-8'
 		else if (lower.includes('sonnet-5') || lower.includes('sonnet5')) fallbackName = 'claude-sonnet-5'
 		else if (lower.includes('opus-4-7') || lower.includes('opus-4.7')) fallbackName = 'claude-opus-4-7'
@@ -669,10 +688,30 @@ const openAIReasoningEffortCapabilities = {
 }
 
 const openAIModelOptions = { // https://platform.openai.com/docs/pricing
-	'gpt-5.6': { // preview (select partners) — https://developers.openai.com/api/docs/models — pricing provisional, mirrors gpt-5.5
+	'gpt-5.6': { // alias → gpt-5.6-sol (flagship) — https://developers.openai.com/api/docs/models
 		contextWindow: 1_050_000,
 		reservedOutputTokenSpace: 128_000,
 		cost: { input: 5.00, output: 30.00, cache_read: 0.50 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: openAIReasoningEffortCapabilities,
+	},
+	'gpt-5.6-terra': { // balanced tier — https://developers.openai.com/api/docs/models/gpt-5.6-terra
+		contextWindow: 1_050_000,
+		reservedOutputTokenSpace: 128_000,
+		cost: { input: 2.50, output: 15.00, cache_read: 0.25 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: openAIReasoningEffortCapabilities,
+	},
+	'gpt-5.6-luna': { // cost-optimized tier — https://developers.openai.com/api/docs/models/gpt-5.6-luna
+		contextWindow: 1_050_000,
+		reservedOutputTokenSpace: 128_000,
+		cost: { input: 1.00, output: 6.00, cache_read: 0.10 },
 		downloadable: false,
 		supportsFIM: false,
 		specialToolFormat: 'openai-style',
@@ -748,7 +787,11 @@ const openAISettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof openAIModelOptions | null = null
-		if (lower.includes('gpt-5.6') || lower.includes('gpt5.6')) fallbackName = 'gpt-5.6'
+		if (lower.includes('gpt-5.6') || lower.includes('gpt5.6')) {
+			if (lower.includes('terra')) fallbackName = 'gpt-5.6-terra'
+			else if (lower.includes('luna')) fallbackName = 'gpt-5.6-luna'
+			else fallbackName = 'gpt-5.6'
+		}
 		else if (lower.includes('gpt-5.5') || lower.includes('gpt5.5')) fallbackName = 'gpt-5.5'
 		else if (lower.includes('gpt-5.4') || lower.includes('gpt5.4')) {
 			if (lower.includes('nano')) fallbackName = 'gpt-5.4-nano'
@@ -1485,6 +1528,12 @@ const liteLLMSettings: VoidStaticProviderInfo = { // https://docs.litellm.ai/doc
 const openRouterModelOptions_assumingOpenAICompat = {
 	'anthropic/claude-fable-5': {
 		...anthropicModelOptions['claude-fable-5'],
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		downloadable: false,
+	},
+	'anthropic/claude-opus-5': {
+		...anthropicModelOptions['claude-opus-5'],
 		supportsSystemMessage: 'system-role',
 		specialToolFormat: 'openai-style',
 		downloadable: false,
