@@ -1351,6 +1351,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 1.9 },
 		supportsFIM: true,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
@@ -1360,6 +1361,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 1.9 },
 		supportsFIM: true,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
@@ -1369,6 +1371,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: .986 },
 		supportsFIM: true,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
@@ -1378,6 +1381,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 4.9 },
 		supportsFIM: false,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
@@ -1387,6 +1391,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 4.7 },
 		supportsFIM: false,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
@@ -1396,6 +1401,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 20 },
 		supportsFIM: false,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: false, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
 	},
@@ -1405,6 +1411,7 @@ const ollamaModelOptions = {
 		cost: { input: 0, output: 0 },
 		downloadable: { sizeGb: 4.7 },
 		supportsFIM: false,
+		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: false, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] },
 	},
@@ -1495,7 +1502,16 @@ const appleFoundationModelsSettings: VoidStaticProviderInfo = {
 }
 
 const ollamaSettings: VoidStaticProviderInfo = {
-	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' } }),
+	modelOptionsFallback: (modelName) => {
+		const res = extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' } })
+		// Ollama exposes native tool calling on its OpenAI-compatible /v1 endpoint, so autodetected chat/instruct
+		// models should use real tool calls in agent mode instead of the brittle XML fallback. We gate on
+		// supportsSystemMessage so pure completion models (e.g. starcoder2, codegemma) are left untouched.
+		if (res && res.supportsSystemMessage && !res.specialToolFormat) {
+			res.specialToolFormat = 'openai-style'
+		}
+		return res
+	},
 	modelOptions: ollamaModelOptions,
 	providerReasoningIOSettings: {
 		// reasoning: we need to filter out reasoning <think> tags manually
