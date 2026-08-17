@@ -39,12 +39,13 @@ export const canonicalModelNameForProvider = (providerName: ProviderName, modelN
 	}
 
 	if (providerName === 'xAI') {
-		if (lower.startsWith('grok-2') || lower.startsWith('grok-3')) return 'grok-4.3'
+		if (lower.startsWith('grok-2') || lower.startsWith('grok-3')) return 'grok-4.6'
 	}
 
 	if (providerName === 'mistral') {
 		if (lower === 'magistral-small-latest') return 'mistral-small-latest'
 		if (lower === 'devstral-small-latest') return 'devstral-latest'
+		if (lower === 'glm-5.2' || lower === 'glm-5-2' || lower === 'glm-5.2-latest') return 'zai-glm-5-2'
 	}
 
 	if (providerName === 'gemini') {
