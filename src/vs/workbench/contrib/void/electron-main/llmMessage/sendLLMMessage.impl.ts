@@ -916,7 +916,9 @@ const sendGeminiChat = async ({
 	const thinkingConfig: ThinkingConfig | undefined = !reasoningInfo?.isReasoningEnabled ? undefined
 		: reasoningInfo.type === 'budget_slider_value' ?
 			{ thinkingBudget: reasoningInfo.reasoningBudget }
-			: undefined
+			: reasoningInfo.type === 'effort_slider_value' ?
+				{ thinkingLevel: reasoningInfo.reasoningEffort.toUpperCase() } as ThinkingConfig
+				: undefined
 
 	// tools
 	const potentialTools = geminiTools(chatMode, mcpTools)

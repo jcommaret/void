@@ -108,6 +108,7 @@ export const defaultModelsOfProvider = {
 		'grok-4.20-multi-agent-0309',
 	],
 	gemini: [ // https://ai.google.dev/gemini-api/docs/models/gemini
+		'gemini-3.8-flash',
 		'gemini-3.7-flash',
 		'gemini-3.6-flash',
 		'gemini-3.5-flash',
@@ -131,7 +132,7 @@ export const defaultModelsOfProvider = {
 	appleFoundationModels: [], // autodetected via afm /v1/models (model id: `foundation`)
 	openRouter: [ // https://openrouter.ai/models — one model per provider
 		'anthropic/claude-fable-5',
-		'google/gemini-3.7-flash',
+		'google/gemini-3.8-flash',
 		'openai/gpt-5.6',
 		'x-ai/grok-4.6',
 		'qwen/qwen3-235b-a22b',
@@ -424,6 +425,7 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 		};
 	}
 
+	if (lower.includes('gemini') && lower.includes('3.8')) return toFallback(geminiModelOptions, 'gemini-3.8-flash')
 	if (lower.includes('gemini') && lower.includes('3.7')) return toFallback(geminiModelOptions, 'gemini-3.7-flash')
 	if (lower.includes('gemini') && lower.includes('3.6')) return toFallback(geminiModelOptions, 'gemini-3.6-flash')
 	if (lower.includes('gemini') && lower.includes('3.5')) {
@@ -433,14 +435,14 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('gemini') && (lower.includes('3.1') || lower.includes('gemini-3'))) {
 		if (lower.includes('lite')) return toFallback(geminiModelOptions, 'gemini-3.1-flash-lite')
 		if (lower.includes('pro')) return toFallback(geminiModelOptions, 'gemini-3.1-pro-preview')
-		return toFallback(geminiModelOptions, 'gemini-3.7-flash')
+		return toFallback(geminiModelOptions, 'gemini-3.8-flash')
 	}
 	if (lower.includes('gemini') && (lower.includes('2.5') || lower.includes('2-5'))) {
 		if (lower.includes('flash-lite') || lower.includes('flash_lite')) return toFallback(geminiModelOptions, 'gemini-2.5-flash-lite')
 		if (lower.includes('flash')) return toFallback(geminiModelOptions, 'gemini-2.5-flash')
 		return toFallback(geminiModelOptions, 'gemini-2.5-pro')
 	}
-	if (lower.includes('gemini')) return toFallback(geminiModelOptions, 'gemini-3.7-flash')
+	if (lower.includes('gemini')) return toFallback(geminiModelOptions, 'gemini-3.8-flash')
 
 	if (lower.includes('claude-3-7') || lower.includes('claude-3.7')) return toFallback(anthropicModelOptions, 'claude-3-7-sonnet-20250219')
 	if (lower.includes('claude-3-5') || lower.includes('claude-3.5')) return toFallback(anthropicModelOptions, 'claude-sonnet-4-6')
@@ -937,6 +939,16 @@ const xAISettings: VoidStaticProviderInfo = {
 
 
 // ---------------- GEMINI ----------------
+// Gemini 3.8 Flash uses thinking_level (LOW/MEDIUM/HIGH); thinking_budget is rejected.
+// MINIMAL / thinking-off is unsupported. https://ai.google.dev/gemini-api/docs/generate-content/thinking
+const gemini38ReasoningCapabilities = {
+	supportsReasoning: true as const,
+	canTurnOffReasoning: false,
+	canIOReasoning: false,
+	reasoningSlider: { type: 'effort_slider' as const, values: ['low', 'medium', 'high'], default: 'medium' },
+	reasoningReservedOutputTokenSpace: 8192,
+}
+
 const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 	'gemini-2.5-pro': { // https://ai.google.dev/gemini-api/docs/models/gemini-2.5-pro
 		contextWindow: 1_048_576,
@@ -985,6 +997,16 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 			reasoningSlider: { type: 'budget_slider', min: 1024, max: 8192, default: 1024 },
 			reasoningReservedOutputTokenSpace: 8192,
 		},
+	},
+	'gemini-3.8-flash': { // https://blog.google/innovation-and-ai/models-and-research/gemini-models/3-8-flash-and-3-8-flash-cyber/
+		contextWindow: 1_048_576,
+		reservedOutputTokenSpace: 65_536,
+		cost: { input: 0.75, cache_read: 0.075, output: 3.75 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'separated',
+		specialToolFormat: 'gemini-style',
+		reasoningCapabilities: gemini38ReasoningCapabilities,
 	},
 	'gemini-3.7-flash': { // https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-3-7-flash/
 		contextWindow: 1_048_576,
@@ -1066,10 +1088,10 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 			reasoningReservedOutputTokenSpace: 8192,
 		},
 	},
-	'gemini-3.1-pro-preview': { // preview — https://ai.google.dev/gemini-api/docs/models — pricing provisional (mirrors 2.5-pro)
+	'gemini-3.1-pro-preview': { // preview — https://ai.google.dev/gemini-api/docs/models
 		contextWindow: 1_048_576,
 		reservedOutputTokenSpace: 65_536,
-		cost: { input: 1.25, output: 10.00 },
+		cost: { input: 2.00, output: 12.00 },
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -1089,14 +1111,15 @@ const geminiSettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof geminiModelOptions | null = null
-		if (lower.includes('3.7')) fallbackName = 'gemini-3.7-flash'
+		if (lower.includes('3.8')) fallbackName = 'gemini-3.8-flash'
+		else if (lower.includes('3.7')) fallbackName = 'gemini-3.7-flash'
 		else if (lower.includes('3.6')) fallbackName = 'gemini-3.6-flash'
 		else if (lower.includes('3.5') && lower.includes('lite')) fallbackName = 'gemini-3.5-flash-lite'
 		else if (lower.includes('3.5') && lower.includes('flash')) fallbackName = 'gemini-3.5-flash'
 		else if (lower.includes('3.1') || lower.includes('gemini-3')) {
 			if (lower.includes('lite')) fallbackName = 'gemini-3.1-flash-lite'
 			else if (lower.includes('pro')) fallbackName = 'gemini-3.1-pro-preview'
-			else fallbackName = 'gemini-3.7-flash'
+			else fallbackName = 'gemini-3.8-flash'
 		}
 		else if (lower.includes('2.5') || lower.includes('2-5')) {
 			if (lower.includes('flash-lite') || lower.includes('flash_lite')) fallbackName = 'gemini-2.5-flash-lite'
@@ -1674,6 +1697,12 @@ const openRouterModelOptions_assumingOpenAICompat = {
 	},
 	'anthropic/claude-sonnet-4.6': {
 		...anthropicModelOptions['claude-sonnet-4-6'],
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		downloadable: false,
+	},
+	'google/gemini-3.8-flash': {
+		...geminiModelOptions['gemini-3.8-flash'],
 		supportsSystemMessage: 'system-role',
 		specialToolFormat: 'openai-style',
 		downloadable: false,
